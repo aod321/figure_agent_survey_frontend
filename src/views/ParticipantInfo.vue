@@ -29,17 +29,6 @@
 							</van-radio-group>
 						</template>
 					</van-field>
-					<van-field
-						v-model="phone"
-						name="phone"
-						label="手机号"
-						type="number"
-						placeholder="请输入您的手机号"
-						:rules="[
-							{ required: true, message: '请填写手机号' },
-							{ pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号' },
-						]"
-					/>
 				</van-cell-group>
 				<div style="margin: 16px;">
 					<van-button :disabled="isPreloading" type="primary" class="start-button" @click="submitInfo">
@@ -69,7 +58,7 @@ const router = useRouter()
 
 const age = ref('')
 const gender = ref('男')
-const phone = ref('')
+const phone = ref('13000000001')
 
 // 添加预加载相关的状态
 const isPreloading = ref(false)
@@ -132,7 +121,7 @@ function checkExperimentStatus() {
 
 function submitInfo() {
 	// 验证表单
-	if (!age.value || !gender.value || !phone.value) {
+	if (!age.value || !gender.value) {
 		showToast('请填写所有必填信息')
 		return
 	}
@@ -140,12 +129,6 @@ function submitInfo() {
 	// 验证年龄
 	if (!validateAge(age.value)) {
 		showToast('请输入有效的年龄')
-		return
-	}
-
-	// 验证手机号
-	if (!/^1[3-9]\d{9}$/.test(phone.value)) {
-		showToast('请输入有效的手机号')
 		return
 	}
 
