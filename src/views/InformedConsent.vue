@@ -4,7 +4,8 @@
 			知情同意书
 		</h1>
 		<div class="consent-content">
-			<p>您好，我们是来自清华大学心理与认知科学系的研究团队，欢迎您参加我们的心理学实验。本实验旨在研究影响人类导航难度判断的心理因素。我们将收集您的性别、年龄和手机号，以便后续数据分析和被试费发放的资质验证。其中，<strong class="highlight">您的手机号仅用于被试费发放审核</strong>，不做其他用途。所有数据将严格保密，仅用于学术研究，不会与第三方共享。</p>
+			<p>您好，我们是来自清华大学心理与认知科学系的研究团队，欢迎您参加我们的心理学实验。本实验旨在研究影响人类<strong>导航难度</strong>判断的心理因素。总时长约5分钟。</p>
+			<p>我们将收集您的性别和年龄，以便后续数据分析和被试费发放的资质验证。所有数据将严格保密，仅用于学术研究，不会与第三方共享。</p>
 			<p>请注意，您的参与是完全自愿的。您有权在任何时候退出实验，而不会受到任何形式的惩罚或损失。</p>
 			<p>
 				如对实验流程有疑问和建议，欢迎联系我们:<br>
@@ -21,22 +22,49 @@
 
 <script lang="ts" setup>
 import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { checkApiStatus } from '@/utils/apiCheck'
 
 const router = useRouter()
+const route = useRoute()
+
+onMounted(() => {
+	// 从URL中获取参数并存储到localStorage
+	const questionnaireId = route.query.questionnaire_id as string || null
+	const userId = route.query.user_id as string || null
+	const startTime = route.query.start_time as string || null
+
+	if (questionnaireId) {
+		localStorage.setItem('questionnaire_id', questionnaireId)
+	}
+	else {
+		localStorage.setItem('questionnaire_id', '33333333-3333-3333-3333-333333333333')
+	}
+	if (userId) {
+		localStorage.setItem('user_id', userId)
+	}
+	else {
+		localStorage.setItem('user_id', '66')
+	}
+	if (startTime) {
+		localStorage.setItem('start_time', startTime)
+	}
+	else {
+		localStorage.setItem('start_time', '2021-11-11T08:08:08.888Z')
+	}
+
+	// 检查API状态
+	checkApiStatus().then((apiIsWorking) => {
+		if (!apiIsWorking) {
+			router.push('/network-error')
+		}
+	})
+})
 
 function proceedToNextStep() {
 	localStorage.setItem('hasGivenConsent', 'true')
 	router.push('/participant-info')
 }
-
-onMounted(async () => {
-	const apiIsWorking = await checkApiStatus()
-	if (!apiIsWorking) {
-		router.push('/network-error')
-	}
-})
 </script>
 
 <style scoped>
