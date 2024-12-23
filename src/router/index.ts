@@ -25,14 +25,14 @@ const routes: RouteRecordRaw[] = [
 	...baseRoutes,
 	{
 		path: '/',
-		redirect: '/participant-info',
+		redirect: '/informed-consent',
 	},
 	{
-		path: '/participant-info',
-		name: 'ParticipantInfo',
-		component: () => import('@/views/ParticipantInfo.vue'),
+		path: '/informed-consent',
+		name: 'InformedConsent',
+		component: () => import('@/views/InformedConsent.vue'),
 		meta: {
-			title: '参与者信息',
+			title: '知情同意',
 		},
 	},
 	{
@@ -94,7 +94,6 @@ router.beforeEach(async (to, from, next) => {
 	// }
 
 	const hasGivenConsent = localStorage.getItem('hasGivenConsent')
-	const participantInfo = localStorage.getItem('participantInfo')
 	const hasSeenInstructions = localStorage.getItem('hasSeenInstructions')
 	const dataSubmitted = localStorage.getItem('dataSubmitted')
 
@@ -106,7 +105,7 @@ router.beforeEach(async (to, from, next) => {
 			next()
 		}
 	}
-	else if (to.name === 'ParticipantInfo') {
+	else if (to.name === 'Instructions') {
 		if (!hasGivenConsent) {
 			next({ name: 'InformedConsent' })
 		}
@@ -117,20 +116,9 @@ router.beforeEach(async (to, from, next) => {
 			next()
 		}
 	}
-	else if (to.name === 'Instructions') {
-		if (!participantInfo) {
-			next({ name: 'ParticipantInfo' })
-		}
-		else if (dataSubmitted === 'true') {
-			next({ name: 'ExperimentEnd' })
-		}
-		else {
-			next()
-		}
-	}
 	else if (to.name === 'Experiment') {
-		if (!participantInfo) {
-			next({ name: 'ParticipantInfo' })
+		if (!hasGivenConsent) {
+			next({ name: 'InformedConsent' })
 		}
 		else if (!hasSeenInstructions) {
 			next({ name: 'Instructions' })

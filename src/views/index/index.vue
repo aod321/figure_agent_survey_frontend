@@ -63,7 +63,7 @@ const experimentProgress = computed(() => Math.floor((currentTrial.value - 1) / 
 const catchTrialEasyIndex = ref(0) // 用于存储 catch trial 中 easy 图片的索引
 
 // 记录实验开始时间（中国时区和时间戳）
-const experimentStartTime = ref(new Date().toLocaleString('zh-CN', { participantInfo: 'Asia/Shanghai' }))
+const experimentStartTime = ref(new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }))
 const experimentStartTimestamp = ref(Date.now())
 
 // Add a variable to track catch trial results
@@ -116,8 +116,14 @@ function saveState() {
 }
 
 // Watch for changes in currentTrial and trialData
-watch([currentTrial, trialData, totalTrials, catchTrialResults], saveState, { deep: true })
-
+watch([currentTrial, trialData, totalTrials], saveState, { deep: true })
+function shuffle(array) {
+	for (let i = array.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[array[i], array[j]] = [array[j], array[i]]
+	}
+	return array
+}
 function startTrial() {
 	if (currentTrial.value > totalTrials.value) {
 		submitData()
@@ -142,7 +148,7 @@ function startTrial() {
 		// Set up regular trial
 		if (allImages.value.length >= 2) {
 			// 不放回采样
-			const shuffled = [...allImages.value].sort(() => 0.5 - Math.random())
+			const shuffled = shuffle(allImages.value)
 			currentImages.value = shuffled.slice(0, 2)
 			// 从 allImages 中移除已使用的图片
 			allImages.value = allImages.value.filter(img => !currentImages.value.includes(img))
@@ -152,14 +158,14 @@ function startTrial() {
 			currentImages.value = [...allImages.value]
 			const usedImages = trialData.value.flatMap(trial => [trial.image1_id, trial.image2_id])
 			const randomUsedImage = usedImages[Math.floor(Math.random() * usedImages.length)]
-			currentImages.value.push({ id: randomUsedImage, image_url: `https://image.blog1.top/${randomUsedImage.toString().padStart(5, '0')}.jpg` })
+			currentImages.value.push({ id: randomUsedImage, image_url: `https://image.blog1.top/inz/${randomUsedImage.toString().padStart(5, '0')}.jpg` })
 			allImages.value = []
 		}
 		else {
 			// 如果没有剩余图片，从已使用的图片中随机选择两张
 			const usedImages = trialData.value.flatMap(trial => [trial.image1_id, trial.image2_id])
-			const shuffledUsedImages = usedImages.sort(() => 0.5 - Math.random())
-			currentImages.value = shuffledUsedImages.slice(0, 2).map(id => ({ id, image_url: `https://image.blog1.top/${id.toString().padStart(5, '0')}.jpg` }))
+			const shuffledUsedImages = shuffle(usedImages)
+			currentImages.value = shuffledUsedImages.slice(0, 2).map(id => ({ id, image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg` }))
 		}
 	}
 	startTime.value = Date.now()
@@ -236,9 +242,14 @@ async function submitData() {
 	const allCatchTrialsCorrect = catchTrialResults.value.every(result => result === 'true')
 
 	// 将 catch trial 正确性添加到 participantInfo 中
+	// 新增代码：获取 user_id 并添加到 participantInfo 中
+	const userId = localStorage.getItem('user_id')
+	const questionnaireId = localStorage.getItem('questionnaire_id')
 	const updatedParticipantInfo = {
 		...participantInfo,
 		catchTrialCorrect: allCatchTrialsCorrect.toString(),
+		user_id: userId, // 添加 user_id
+		questionnaire_id: questionnaireId, // 添加 questionnaire_id
 		experimentStartDateTime: experimentStartTime.value, // 记录实验开始时间（中国时区）
 		experimentEndDateTime: experimentEndTime, // 记录实验结束时间（中国时区）
 		experimentDuration, // 记录实验总时长（毫秒）
@@ -353,9 +364,9 @@ function loadImages() {
 		catchTrialResults.value = parsedState.catchTrialResults || []
 	}
 	else {
-		// 如果没有保存的数据，初始化图片数组
-		for (let i = 0; i < 500; i++) {
-			allImages.value.push({ id: i, image_url: `https://image.blog1.top/${i.toString().padStart(5, '0')}.jpg` })
+		// 如果没有保存的据，初始化图片数组
+		for (let i = 0; i < 10000; i++) {
+			allImages.value.push({ id: i, image_url: `https://image.blog1.top/inz/${i.toString().padStart(5, '0')}.jpg` })
 		}
 		catchImages.value = [
 			{ id: 'empty', image_url: 'https://image.blog1.top/empty.jpg' },
