@@ -26,3 +26,4 @@ stats.html
 types/auto-imports.d.ts
 types/eslintrc-auto-import.json
 types/components.d.ts
+*.zip
