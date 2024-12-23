@@ -30,6 +30,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { checkApiStatus } from '@/utils/apiCheck'
+import { getImagePairs } from '@/utils/preloader'
 
 const router = useRouter()
 
@@ -38,6 +39,7 @@ const currentImages = ref<{ id: number | string, image_url: string }[]>([])
 const catchImages = ref<{ id: string, image_url: string }[]>([])
 const currentTrial = ref(1)
 const trialData = ref<any[]>([])
+const imagePairs = ref<number[][]>([])
 
 const imageWidth = ref('80%')
 const imageHeight = ref('35vh')
@@ -97,6 +99,7 @@ function loadSavedState() {
 		experimentStartTime.value = parsedState.experimentStartTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 		experimentStartTimestamp.value = parsedState.experimentStartTimestamp || Date.now()
 		catchTrialResults.value = parsedState.catchTrialResults || []
+		imagePairs.value = parsedState.imagePairs || []
 	}
 }
 
@@ -111,26 +114,21 @@ function saveState() {
 		experimentStartTime: experimentStartTime.value,
 		experimentStartTimestamp: experimentStartTimestamp.value,
 		catchTrialResults: catchTrialResults.value,
+		imagePairs: imagePairs.value,
 	}
 	localStorage.setItem('experimentState', JSON.stringify(state))
 }
 
 // Watch for changes in currentTrial and trialData
 watch([currentTrial, trialData, totalTrials], saveState, { deep: true })
-function shuffle(array) {
-	for (let i = array.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[array[i], array[j]] = [array[j], array[i]]
-	}
-	return array
-}
+
 function startTrial() {
 	if (currentTrial.value > totalTrials.value) {
 		submitData()
 		return
 	}
 
-	trialStartDateTime.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) // 记录每个trial的开始时间（中国时区）
+	trialStartDateTime.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 
 	if (catchTrialIndices.value.includes(currentTrial.value)) {
 		// Set up catch trial
@@ -145,29 +143,15 @@ function startTrial() {
 		}
 	}
 	else {
-		// Set up regular trial
-		if (allImages.value.length >= 2) {
-			// 不放回采样
-			const shuffled = shuffle(allImages.value)
-			currentImages.value = shuffled.slice(0, 2)
-			// 从 allImages 中移除已使用的图片
-			allImages.value = allImages.value.filter(img => !currentImages.value.includes(img))
-		}
-		else if (allImages.value.length === 1) {
-			// 如果只剩一张图片，使用这张图片并从其他已使用的图片中随机选择一张
-			currentImages.value = [...allImages.value]
-			const usedImages = trialData.value.flatMap(trial => [trial.image1_id, trial.image2_id])
-			const randomUsedImage = usedImages[Math.floor(Math.random() * usedImages.length)]
-			currentImages.value.push({ id: randomUsedImage, image_url: `https://image.blog1.top/inz/${randomUsedImage.toString().padStart(5, '0')}.jpg` })
-			allImages.value = []
-		}
-		else {
-			// 如果没有剩余图片，从已使用的图片中随机选择两张
-			const usedImages = trialData.value.flatMap(trial => [trial.image1_id, trial.image2_id])
-			const shuffledUsedImages = shuffle(usedImages)
-			currentImages.value = shuffledUsedImages.slice(0, 2).map(id => ({ id, image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg` }))
-		}
+		// Set up regular trial using pre-generated pairs
+		const trialIndex = currentTrial.value - 1
+		const currentPair = imagePairs.value[trialIndex]
+		currentImages.value = currentPair.map(id => ({
+			id,
+			image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg`,
+		}))
 	}
+
 	startTime.value = Date.now()
 	isClicked.value = false // Reset isClicked at the start of each trial
 }
@@ -362,12 +346,18 @@ function loadImages() {
 		experimentStartTime.value = parsedState.experimentStartTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 		experimentStartTimestamp.value = parsedState.experimentStartTimestamp || Date.now()
 		catchTrialResults.value = parsedState.catchTrialResults || []
+		imagePairs.value = parsedState.imagePairs || []
 	}
 	else {
-		// 如果没有保存的据，初始化图片数组
-		for (let i = 0; i < 10000; i++) {
-			allImages.value.push({ id: i, image_url: `https://image.blog1.top/inz/${i.toString().padStart(5, '0')}.jpg` })
-		}
+		// 使用预加载时生成的图片对
+		imagePairs.value = getImagePairs()
+		// 将所有需要用到的图片ID转换为图片对象
+		const uniqueIds = [...new Set(imagePairs.value.flat())]
+		allImages.value = uniqueIds.map(id => ({
+			id,
+			image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg`,
+		}))
+
 		catchImages.value = [
 			{ id: 'empty', image_url: 'https://image.blog1.top/empty.jpg' },
 		]
