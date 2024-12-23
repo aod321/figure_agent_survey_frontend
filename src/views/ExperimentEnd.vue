@@ -30,6 +30,14 @@ const startTime = ref<string | null>(null)
 onMounted(() => {
 	checkExperimentCompletion()
 
+	// 检查是否已经提交过数据
+	const hasSubmitted = localStorage.getItem('worldlabSubmitted')
+	if (hasSubmitted === 'true') {
+		showToast('数据已提交')
+		window.location.href = 'https://www.worldlab.site/dashboard'
+		return
+	}
+
 	// 从 localStorage 获取 questionnaire_id 和 user_id
 	questionnaireId.value = localStorage.getItem('questionnaire_id')
 	userId.value = localStorage.getItem('user_id')
@@ -38,7 +46,7 @@ onMounted(() => {
 	// 从 localStorage 获取参与者信息
 	const storedInfo = localStorage.getItem('participantInfo')
 	if (storedInfo) {
-		participantInfo.value = JSON.parse(storedInfo) // 解析参与者信息
+		participantInfo.value = JSON.parse(storedInfo)
 	}
 })
 
@@ -62,9 +70,25 @@ function goToSurvey() {
 		return
 	}
 
-	localStorage.setItem('experimentCompleted', 'true')
+	// 检查是否已经提交过数据
+	if (localStorage.getItem('worldlabSubmitted') === 'true') {
+		showToast('数据已提交')
+		window.location.href = 'https://www.worldlab.site/dashboard'
+		return
+	}
 
-	isSubmitting.value = true // 防止重复点击
+	localStorage.setItem('experimentCompleted', 'true')
+	isSubmitting.value = true
+
+	// 获取实验数据
+	const experimentState = localStorage.getItem('experimentState')
+	if (!experimentState) {
+		showToast('未找到实验数据')
+		isSubmitting.value = false
+		return
+	}
+
+	const experimentData = JSON.parse(experimentState)
 
 	// 准备发送的数据
 	const data = {
@@ -74,8 +98,25 @@ function goToSurvey() {
 		completion_time: new Date().toISOString(),
 		status: 'reviewing',
 		response_data: {
-			age: participantInfo.value.age, // 从参与者信息中获取年龄
-			gender: participantInfo.value.gender, // 从参与者信息中获取性别
+			// 基本信息
+			age: participantInfo.value.age,
+			gender: participantInfo.value.gender,
+			// 实验数据
+			experimentStartTime: experimentData.experimentStartTime,
+			experimentEndTime: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+			experimentDuration: Date.now() - experimentData.experimentStartTimestamp,
+			totalTrials: experimentData.totalTrials,
+			catchTrialResults: experimentData.catchTrialResults,
+			// 实验结果数据
+			trialData: experimentData.trialData.map((trial: any) => ({
+				trial_id: trial.trial_id,
+				trial_type: trial.trial_type,
+				selected_image_id: trial.selected_image_id,
+				reaction_time: trial.reaction_time,
+				catch_trial_correct: trial.catch_trial_correct,
+				trial_start_time: trial.trial_start_datetime,
+				trial_end_time: trial.trial_end_datetime,
+			})),
 		},
 		reward_amount: 10,
 		test: true,
@@ -84,45 +125,44 @@ function goToSurvey() {
 	// 发送数据的函数
 	async function sendData() {
 		try {
-			console.log('发送的数据:', data) // 添加调试信息
+			console.log('发送的数据:', data)
 
-			// 创建请求头
 			const myHeaders = new Headers()
 			myHeaders.append('Content-Type', 'application/json')
 
-			// 准备请求选项
-			const requestOptions = {
+			const requestOptions: RequestInit = {
 				method: 'POST',
 				headers: myHeaders,
-				body: JSON.stringify(data), // 使用 data 变量
-				redirect: 'follow',
+				body: JSON.stringify(data),
+				redirect: 'follow' as RequestRedirect,
 			}
 
 			const response = await fetch('https://www.worldlab.site/api/callback/questionnaire', requestOptions)
 
 			if (!response.ok) {
-				const errorText = await response.text() // 获取错误信息
+				const errorText = await response.text()
 				throw new Error(`网络错误，数据提交失败: ${errorText}`)
 			}
 
 			const result = await response.json()
 			console.log('数据提交成功:', result)
 
-			// 显示提示信息
+			// 标记数据已提交
+			localStorage.setItem('worldlabSubmitted', 'true')
+
 			showToast('正在跳转...')
-			// 跳转到主平台
 			window.location.href = 'https://www.worldlab.site/dashboard'
 		}
-		catch (error) {
+		catch (error: unknown) {
 			console.error('提交数据时出错:', error)
-			showToast(`提交数据失败，请重试: ${error.message}`) // 显示具体错误信息
+			const errorMessage = error instanceof Error ? error.message : '未知错误'
+			showToast(`提交数据失败，请重试: ${errorMessage}`)
 		}
 		finally {
-			isSubmitting.value = false // 恢复按钮状态
+			isSubmitting.value = false
 		}
 	}
 
-	// 调用发送数据的函数
 	sendData()
 }
 </script>
