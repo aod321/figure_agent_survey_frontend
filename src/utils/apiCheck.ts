@@ -1,6 +1,6 @@
 export async function checkApiStatus() {
 	try {
-		const response = await fetch('https://map.blog1.top/api/', {
+		const response = await fetch(`${import.meta.env.VITE_EXPERIMENT_API_URL}/`, {
 			method: 'GET',
 			headers: {
 				'accept': '*/*',

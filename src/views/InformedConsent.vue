@@ -4,14 +4,10 @@
 			知情同意书
 		</h1>
 		<div class="consent-content">
-			<p>您好，我们是来自清华大学心理与认知科学系的研究团队，欢迎您参加我们的心理学实验。本实验旨在研究影响人类<strong>导航难度</strong>判断的心理因素。总时长约5分钟。</p>
-			<p>我们将收集您的性别和年龄，以便后续数据分析和被试费发放的资质验证。所有数据将严格保密，仅用于学术研究，不会与第三方共享。</p>
-			<p>请注意，您的参与是完全自愿的。您有权在任何时候退出实验，而不会受到任何形式的惩罚或损失。</p>
-			<p>
-				如对实验流程有疑问和建议，欢迎联系我们:<br>
-				<a href="mailto:wwd22@mails.tsinghua.edu.cn">wwd22@mails.tsinghua.edu.cn</a><br>
-				<a href="mailto:z-yin21@mails.tsinghua.edu.cn">z-yin21@mails.tsinghua.edu.cn</a>
-			</p>
+			<p>您好，欢迎参加本次问卷研究。</p>
+			<p>我们将收集您的基本信息，以便后续数据分析。所有数据将严格保密，仅用于学术研究，不会与第三方共享。</p>
+			<p>请注意，您的参与是完全自愿的。您有权在任何时候退出，而不会受到任何形式的惩罚或损失。</p>
+			<p><strong>建议您使用电脑作答</strong>，以获得更好的图片浏览体验。</p>
 			<p>点击下一步，表示您已知情同意，自愿参与后续研究。</p>
 		</div>
 		<van-button type="primary" size="large" class="consent-button" @click="proceedToNextStep">
@@ -102,10 +98,6 @@ p {
 	line-height: 1.8;
 	color: #34495e;
 	text-align: justify;
-}
-
-.highlight {
-	color: #3498db;
 }
 
 .consent-button {

@@ -4,20 +4,9 @@
 			<h2 class="title">
 				请输入您的信息
 			</h2>
-			<van-form @submit="onSubmit">
+			<van-form @submit="submitInfo">
 				<van-cell-group inset>
-					<van-field
-						v-model="age"
-						name="age"
-						label="年龄"
-						type="number"
-						placeholder="请输入您的年龄"
-						:rules="[
-							{ required: true, message: '请填写年龄' },
-							{ validator: validateAge, message: '年龄必须是有效的数字' },
-						]"
-					/>
-					<van-field name="gender" label="性别">
+					<van-field name="gender" label="性别" required :rules="[{ required: true, message: '请选择性别' }]">
 						<template #input>
 							<van-radio-group v-model="gender" direction="horizontal">
 								<van-radio name="男">
@@ -26,64 +15,133 @@
 								<van-radio name="女">
 									女
 								</van-radio>
+								<van-radio name="不填">
+									不填
+								</van-radio>
 							</van-radio-group>
 						</template>
 					</van-field>
+					<van-field
+						v-model="phone"
+						name="phone"
+						label="手机号"
+						type="tel"
+						required
+						placeholder="仅用于收款"
+						:rules="[
+							{ required: true, message: '请填写手机号' },
+							{ validator: validatePhone, message: '请输入有效的手机号' },
+						]"
+					/>
+					<van-field name="researchRole" label="科研身份" required :rules="[{ required: true, message: '请选择科研身份' }]">
+						<template #input>
+							<van-radio-group v-model="researchRole" direction="vertical">
+								<van-radio name="教授">
+									教授
+								</van-radio>
+								<van-radio name="博士后">
+									博士后
+								</van-radio>
+								<van-radio name="学生">
+									学生
+								</van-radio>
+								<van-radio name="公司科研人员">
+									公司科研人员
+								</van-radio>
+								<van-radio name="其他">
+									其他
+								</van-radio>
+							</van-radio-group>
+						</template>
+					</van-field>
+					<van-field
+						v-if="researchRole === '其他'"
+						v-model="researchRoleOther"
+						name="researchRoleOther"
+						label="请说明"
+						required
+						placeholder="请填写您的科研身份"
+						:rules="[{ required: true, message: '请填写科研身份' }]"
+					/>
+					<van-field
+						v-model="researchYears"
+						name="researchYears"
+						label="科研年限"
+						type="number"
+						required
+						placeholder="请输入数字（年）"
+						:rules="[
+							{ required: true, message: '请填写科研年限' },
+							{ validator: validateYears, message: '请输入有效的年数' },
+						]"
+					/>
+					<van-field name="pipelineTime" label="制作 Pipeline 图耗时" required :rules="[{ required: true, message: '请选择耗时' }]">
+						<template #input>
+							<van-radio-group v-model="pipelineTime" direction="vertical">
+								<van-radio name="几小时">
+									几小时
+								</van-radio>
+								<van-radio name="几天">
+									几天
+								</van-radio>
+								<van-radio name="一周">
+									一周
+								</van-radio>
+								<van-radio name="两三周">
+									两三周
+								</van-radio>
+								<van-radio name="一月及以上">
+									一月及以上
+								</van-radio>
+								<van-radio name="其他">
+									其他
+								</van-radio>
+							</van-radio-group>
+						</template>
+					</van-field>
+					<van-field
+						v-if="pipelineTime === '其他'"
+						v-model="pipelineTimeOther"
+						name="pipelineTimeOther"
+						label="请说明"
+						required
+						placeholder="请填写具体耗时"
+						:rules="[{ required: true, message: '请填写具体耗时' }]"
+					/>
 				</van-cell-group>
 				<div style="margin: 16px;">
-					<van-button :disabled="isPreloading" type="primary" class="start-button" @click="submitInfo">
-						{{ isPreloading ? '资源加载中...' : '开始实验' }}
+					<van-button type="primary" class="start-button" native-type="submit">
+						开始实验
 					</van-button>
 				</div>
 			</van-form>
-			<!-- 添加加载进度显示 -->
-			<div v-if="isPreloading" class="preload-status">
-				<van-progress :percentage="loadingProgress" :stroke-width="8" />
-				<p class="loading-text">
-					{{ loadingText }}
-				</p>
-			</div>
 		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { getPreloadStatus, preloadImages } from '@/utils/preloader'
 import { checkApiStatus } from '@/utils/apiCheck'
 
 const router = useRouter()
 
-const age = ref('')
-const gender = ref('男')
-const phone = ref('13000000001')
+const gender = ref('')
+const researchRole = ref('')
+const researchRoleOther = ref('')
+const researchYears = ref('')
+const pipelineTime = ref('')
+const pipelineTimeOther = ref('')
+const phone = ref('')
 
-// 添加预加载相关的状态
-const isPreloading = ref(false)
-const loadingProgress = ref(0)
-const loadingText = computed(() => {
-	if (loadingProgress.value === 0) {
-		return '准备加载资源...'
-	}
-	if (loadingProgress.value < 100) {
-		return `正在加载资源...${loadingProgress.value}%`
-	}
-	return '加载完成，准备开始实验'
-})
-
-function validateAge(val: string) {
-	const ageNum = Number.parseInt(val)
-	return !Number.isNaN(ageNum) && ageNum > 0 && ageNum < 120
+function validateYears(val: string) {
+	const years = Number.parseFloat(val)
+	return !Number.isNaN(years) && years >= 0 && years < 80
 }
 
-function onSubmit(values: any) {
-	console.log('form values:', values)
-	// TODO: 保存参与者信息到本地存储或发送到服务器
-	localStorage.setItem('participantInfo', JSON.stringify({ ...values, name: '匿名' }))
-	// 提交后跳转到实验指导页
-	router.push('/instructions')
+function validatePhone(val: string) {
+	return /^1[3-9]\d{9}$/.test(val)
 }
 
 onMounted(async () => {
@@ -102,18 +160,14 @@ function checkExperimentStatus() {
 	}
 	else {
 		const participantInfo = localStorage.getItem('participantInfo')
-		if (participantInfo && JSON.parse(participantInfo)?.age) {
+		if (participantInfo && JSON.parse(participantInfo)?.phone) {
 			// 如果已经填写过信息，加载参与者信息, 预加载资源, 跳转到指导语页面
 			const parsedInfo = JSON.parse(participantInfo)
-			age.value = parsedInfo.age
-			gender.value = parsedInfo.gender
-			phone.value = parsedInfo.phone
-			// 如果预加载未完成, 则预加载资源
-			if (!getPreloadStatus().value) {
-				preloadImages((progress) => {
-					loadingProgress.value = progress
-				})
-			}
+			gender.value = parsedInfo.gender || ''
+			phone.value = parsedInfo.phone || ''
+			researchRole.value = parsedInfo.researchRole || ''
+			researchYears.value = parsedInfo.researchYears || ''
+			pipelineTime.value = parsedInfo.pipelineTime || ''
 			router.push('/instructions')
 		}
 	}
@@ -121,23 +175,38 @@ function checkExperimentStatus() {
 
 function submitInfo() {
 	// 验证表单
-	if (!age.value || !gender.value) {
+	if (!gender.value || !phone.value || !researchRole.value || !researchYears.value || !pipelineTime.value) {
 		showToast('请填写所有必填信息')
 		return
 	}
 
-	// 验证年龄
-	if (!validateAge(age.value)) {
-		showToast('请输入有效的年龄')
+	if (!validateYears(researchYears.value)) {
+		showToast('请输入有效的科研年限')
+		return
+	}
+
+	if (researchRole.value === '其他' && !researchRoleOther.value) {
+		showToast('请填写您的科研身份')
+		return
+	}
+
+	if (pipelineTime.value === '其他' && !pipelineTimeOther.value) {
+		showToast('请填写具体耗时')
+		return
+	}
+
+	if (!validatePhone(phone.value)) {
+		showToast('请输入有效的手机号')
 		return
 	}
 
 	// Save participant info
 	const participantInfo = {
-		name: '匿名',
-		age: age.value,
 		gender: gender.value,
 		phone: phone.value,
+		researchRole: researchRole.value === '其他' ? researchRoleOther.value : researchRole.value,
+		researchYears: researchYears.value,
+		pipelineTime: pipelineTime.value === '其他' ? pipelineTimeOther.value : pipelineTime.value,
 	}
 	localStorage.setItem('participantInfo', JSON.stringify(participantInfo))
 
@@ -197,7 +266,15 @@ function submitInfo() {
 
 .van-radio-group {
 	display: flex;
-	justify-content: space-around;
+	justify-content: flex-start;
+	gap: 24px;
+	flex-wrap: nowrap;
+}
+
+:deep(.van-radio-group--vertical) {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 .van-button {

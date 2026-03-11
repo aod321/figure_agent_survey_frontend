@@ -1,5 +1,5 @@
 {
-	"name": "vue3-mobile",
+	"name": "figure-agent-survey-frontend",
 	"type": "module",
 	"version": "0.0.1",
 	"private": true,
@@ -26,7 +26,8 @@
 		"preinstall": "npx only-allow pnpm",
 		"eslint": "eslint --ext .js,.vue,.ts --ignore-path .eslintignore --fix src",
 		"prepare": "husky install",
-		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
+		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
+		"generate-manifest": "npx tsx scripts/generate-manifest.ts"
 	},
 	"dependencies": {
 		"@amap/amap-jsapi-loader": "^1.0.1",

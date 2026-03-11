@@ -1,160 +1,244 @@
 <template>
 	<div class="experiment">
-		<h2>Trial {{ currentTrial }} / {{ totalTrials }}</h2>
 		<van-progress :percentage="experimentProgress" :stroke-width="8" />
-		<van-row class="content">
-			<van-col span="24">
-				<h1 class="prompt">
-					请点击看起来<span class="highlight-text">更难</span>导航的图片
-				</h1>
-			</van-col>
-			<van-col span="24" class="image-choice">
-				<van-image
-					v-for="(img, index) in currentImages"
-					:key="index"
-					:src="img.image_url"
-					:width="imageWidth"
-					:height="imageHeight"
-					fit="contain"
-					:radius="imageRadius"
+		<div class="content">
+			<h1 class="prompt">
+				请点击您认为<span class="highlight-text">更好</span>的图片
+				<span class="prompt-hint">长按图片可放大查看</span>
+			</h1>
+			<div class="image-choice">
+				<div
+					class="image-card"
 					:class="{ disabled: isClicked }"
-					@click="handleClick(img.id, index)"
-				/>
-			</van-col>
-		</van-row>
+					@click="handleClick(0)"
+					@pointerdown="startLongPress(0)"
+					@pointerup="cancelLongPress"
+					@pointerleave="cancelLongPress"
+				>
+					<div class="image-label">
+						A
+					</div>
+					<img :src="currentImages[0]?.url" class="trial-image">
+				</div>
+				<div class="vs-separator">
+					VS
+				</div>
+				<div
+					class="image-card"
+					:class="{ disabled: isClicked }"
+					@click="handleClick(1)"
+					@pointerdown="startLongPress(1)"
+					@pointerup="cancelLongPress"
+					@pointerleave="cancelLongPress"
+				>
+					<div class="image-label">
+						B
+					</div>
+					<img :src="currentImages[1]?.url" class="trial-image">
+				</div>
+			</div>
+		</div>
+
+		<div v-if="zoomedIndex !== null" class="zoom-overlay" @click="zoomedIndex = null">
+			<div class="zoom-header">
+				<span class="zoom-title">{{ zoomedIndex === 0 ? 'A' : 'B' }}</span>
+				<button class="zoom-close" @click="zoomedIndex = null">
+					✕
+				</button>
+			</div>
+			<img :src="currentImages[zoomedIndex]?.url" class="zoom-image" @click.stop>
+		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { checkApiStatus } from '@/utils/apiCheck'
-import { getImagePairs } from '@/utils/preloader'
+import { TOTAL_TRIALS, generateTrials, preloadAhead } from '@/utils/preloader'
+import type { Trial } from '@/utils/preloader'
 
 const router = useRouter()
 
-const allImages = ref<{ id: number, image_url: string }[]>([])
-const currentImages = ref<{ id: number | string, image_url: string }[]>([])
-const catchImages = ref<{ id: string, image_url: string }[]>([])
+const STATE_VERSION = 2
+
+const trials = ref<Trial[]>([])
+const currentImages = ref<{ url: string }[]>([])
 const currentTrial = ref(1)
 const trialData = ref<any[]>([])
-const imagePairs = ref<number[][]>([])
-
-const imageWidth = ref('80%')
-const imageHeight = ref('35vh')
-const maxImageWidth = 400
-const imageRadius = ref('12px')
 
 const startTime = ref(0)
-const trialStartDateTime = ref('') // 记录每个trial的开始时间（中国时区）
+const trialStartDateTime = ref('')
 
-const totalTrials = ref(105) // 100 regular trials + 5 catch trials
-const catchTrialIndices = ref<number[]>([]) // Array to store the indices of catch trials
-
-// Add these lines to define loading and loadingProgress
 const loading = ref(false)
 const loadingProgress = ref(0)
-
-// Add this line to prevent multiple clicks
 const isClicked = ref(false)
+const zoomedIndex = ref<number | null>(null)
+let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressed = false
 
-// Calculate experiment progress
-const experimentProgress = computed(() => Math.floor((currentTrial.value - 1) / totalTrials.value * 100))
-
-const catchTrialEasyIndex = ref(0) // 用于存储 catch trial 中 easy 图片的索引
-
-// 记录实验开始时间（中国时区和时间戳）
-const experimentStartTime = ref(new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }))
-const experimentStartTimestamp = ref(Date.now())
-
-// Add a variable to track catch trial results
-const catchTrialResults = ref<string[]>([])
-
-function calculateImageSize() {
-	const screenHeight = window.innerHeight
-	const screenWidth = window.innerWidth
-
-	// 统一桌面和移动设备的处理逻辑
-	imageHeight.value = `${screenHeight * 0.35}px`
-
-	// 计算图片宽度，但不超过maxImageWidth
-	const calculatedWidth = Math.min(screenWidth * 0.8, maxImageWidth)
-	imageWidth.value = `${calculatedWidth}px`
-
-	// 根据屏幕宽度动态设置圆角大小
-	imageRadius.value = screenWidth < 768 ? '12px' : '24px'
+function startLongPress(index: number) {
+	longPressed = false
+	longPressTimer = setTimeout(() => {
+		longPressed = true
+		zoomedIndex.value = index
+	}, 500)
 }
 
-// Load saved state from localStorage
-function loadSavedState() {
-	const savedState = localStorage.getItem('experimentState')
-	if (savedState) {
-		const parsedState = JSON.parse(savedState)
-		currentTrial.value = parsedState.currentTrial
-		trialData.value = parsedState.trialData
-		allImages.value = parsedState.allImages
-		catchTrialIndices.value = parsedState.catchTrialIndices
-		catchImages.value = parsedState.catchImages
-		experimentStartTime.value = parsedState.experimentStartTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-		experimentStartTimestamp.value = parsedState.experimentStartTimestamp || Date.now()
-		catchTrialResults.value = parsedState.catchTrialResults || []
-		imagePairs.value = parsedState.imagePairs || []
+function cancelLongPress() {
+	if (longPressTimer) {
+		clearTimeout(longPressTimer)
+		longPressTimer = null
 	}
 }
 
-// Save current state to localStorage
+const experimentProgress = computed(() => Math.floor((currentTrial.value - 1) / TOTAL_TRIALS * 100))
+
+const experimentStartTime = ref(new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }))
+const experimentStartTimestamp = ref(Date.now())
+const catchTrialResults = ref<string[]>([])
+
+// ---- State persistence ----
+
+function loadSavedState(): boolean {
+	const savedState = localStorage.getItem('experimentState')
+	if (!savedState) {
+		return false
+	}
+
+	const parsed = JSON.parse(savedState)
+	if (parsed.version !== STATE_VERSION) {
+		localStorage.removeItem('experimentState')
+		return false
+	}
+
+	trials.value = parsed.trials
+	currentTrial.value = parsed.currentTrial
+	trialData.value = parsed.trialData
+	experimentStartTime.value = parsed.experimentStartTime
+	experimentStartTimestamp.value = parsed.experimentStartTimestamp
+	catchTrialResults.value = parsed.catchTrialResults || []
+	return true
+}
+
 function saveState() {
 	const state = {
+		version: STATE_VERSION,
+		trials: trials.value,
 		currentTrial: currentTrial.value,
 		trialData: trialData.value,
-		allImages: allImages.value,
-		catchTrialIndices: catchTrialIndices.value,
-		catchImages: catchImages.value,
 		experimentStartTime: experimentStartTime.value,
 		experimentStartTimestamp: experimentStartTimestamp.value,
 		catchTrialResults: catchTrialResults.value,
-		imagePairs: imagePairs.value,
 	}
 	localStorage.setItem('experimentState', JSON.stringify(state))
 }
 
-// Watch for changes in currentTrial and trialData
-watch([currentTrial, trialData, totalTrials], saveState, { deep: true })
+watch([currentTrial, trialData], saveState, { deep: true })
+
+// ---- Trial logic ----
 
 function startTrial() {
-	if (currentTrial.value > totalTrials.value) {
+	if (currentTrial.value > TOTAL_TRIALS) {
 		submitData()
 		return
 	}
 
+	const trial = trials.value[currentTrial.value - 1]
 	trialStartDateTime.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
 
-	if (catchTrialIndices.value.includes(currentTrial.value)) {
-		// Set up catch trial
-		const easyImage = catchImages.value.find(img => img.id === 'empty')!
-		const hardImage = allImages.value[Math.floor(Math.random() * allImages.value.length)]
-		currentImages.value = [easyImage, hardImage]
-		// 随机决定 easy 图片的位置（0 或 1）
-		catchTrialEasyIndex.value = Math.random() < 0.5 ? 0 : 1
-		// 如果 easy 图片不在第一个位置，则交换两张图片的顺序
-		if (catchTrialEasyIndex.value === 1) {
-			[currentImages.value[0], currentImages.value[1]] = [currentImages.value[1], currentImages.value[0]]
-		}
+	if (trial.type === 'regular') {
+		currentImages.value = [
+			{ url: trial.image1Url },
+			{ url: trial.image2Url },
+		]
 	}
 	else {
-		// Set up regular trial using pre-generated pairs
-		const trialIndex = currentTrial.value - 1
-		const currentPair = imagePairs.value[trialIndex]
-		currentImages.value = currentPair.map(id => ({
-			id,
-			image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg`,
-		}))
+		const images = [
+			{ url: trial.catchUrl },
+			{ url: trial.mainUrl },
+		]
+		if (trial.catchPosition === 1) {
+			images.reverse()
+		}
+		currentImages.value = images
 	}
 
 	startTime.value = Date.now()
-	isClicked.value = false // Reset isClicked at the start of each trial
+	isClicked.value = false
+
+	preloadAhead(trials.value, currentTrial.value)
 }
+
+function handleClick(index: number) {
+	if (longPressed) {
+		return
+	}
+	if (isClicked.value) {
+		return
+	}
+	if (!checkExperimentStatus()) {
+		return
+	}
+
+	isClicked.value = true
+	const endTime = Date.now()
+	const reactionTime = endTime - startTime.value
+	const trialEndDateTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+
+	const trial = trials.value[currentTrial.value - 1]
+
+	let catchTrialCorrect: string | null = null
+
+	if (trial.type === 'regular') {
+		const selectedMethod = index === 0 ? trial.method1 : trial.method2
+		trialData.value.push({
+			trial_id: currentTrial.value,
+			trial_type: 'regular',
+			paperId: trial.paperId,
+			method1: trial.method1,
+			method2: trial.method2,
+			selected_index: index,
+			selectedMethod,
+			reaction_time: reactionTime,
+			timestamp: endTime,
+			catch_trial_correct: null,
+			trial_start_datetime: trialStartDateTime.value,
+			trial_end_datetime: trialEndDateTime,
+		})
+	}
+	else {
+		const selectedCatch = index === trial.catchPosition
+		catchTrialCorrect = selectedCatch ? 'false' : 'true'
+		catchTrialResults.value.push(catchTrialCorrect)
+
+		trialData.value.push({
+			trial_id: currentTrial.value,
+			trial_type: 'catch',
+			catchFile: trial.catchFile,
+			mainPaperId: trial.mainPaperId,
+			mainMethod: trial.mainMethod,
+			selected_index: index,
+			selectedCatch,
+			reaction_time: reactionTime,
+			timestamp: endTime,
+			catch_trial_correct: catchTrialCorrect,
+			trial_start_datetime: trialStartDateTime.value,
+			trial_end_datetime: trialEndDateTime,
+		})
+	}
+
+	currentTrial.value++
+	if (currentTrial.value <= TOTAL_TRIALS) {
+		startTrial()
+	}
+	else {
+		submitData()
+	}
+}
+
+// ---- Experiment flow ----
 
 function checkExperimentStatus() {
 	const hasSeenInstructions = localStorage.getItem('hasSeenInstructions')
@@ -165,53 +249,47 @@ function checkExperimentStatus() {
 		router.push('/instructions')
 		return false
 	}
-
 	return true
 }
 
-function handleClick(imageId: number | string, index: number) {
-	if (isClicked.value) {
-		return
-	} // Prevent multiple clicks
-
-	if (!checkExperimentStatus()) {
-		return
+function initExperiment() {
+	const restored = loadSavedState()
+	if (!restored) {
+		trials.value = generateTrials()
+		experimentStartTime.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+		experimentStartTimestamp.value = Date.now()
+		saveState()
 	}
 
-	isClicked.value = true // Set isClicked to true to prevent further clicks
-	const endTime = Date.now()
-	const reactionTime = endTime - startTime.value
-	const trialEndDateTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) // 记录每个trial的结束时间（中国时区）
+	preloadAhead(trials.value, currentTrial.value - 1)
+	startTrial()
+}
 
-	const trialType = catchTrialIndices.value.includes(currentTrial.value) ? 'catch' : 'regular'
-
-	let catchTrialCorrect: string | null = null
-	if (trialType === 'catch') {
-		// 判断是否正确选择了 hard 图片
-		catchTrialCorrect = index !== catchTrialEasyIndex.value ? 'true' : 'false'
-		catchTrialResults.value.push(catchTrialCorrect)
-	}
-
-	trialData.value.push({
-		trial_id: currentTrial.value,
-		trial_type: trialType,
-		image1_id: currentImages.value[0].id,
-		image2_id: currentImages.value[1].id,
-		selected_index: index,
-		selected_image_id: imageId,
-		reaction_time: reactionTime,
-		timestamp: endTime,
-		catch_trial_correct: catchTrialCorrect,
-		trial_start_datetime: trialStartDateTime.value, // 记录每个trial的开始时间（中国时区）
-		trial_end_datetime: trialEndDateTime, // 记录每个trial的结束时间（中国时区）
-	})
-
-	currentTrial.value++
-	if (currentTrial.value <= totalTrials.value) {
-		startTrial() // 直接开始下一个试验，不使用延迟
+function checkAndSubmitData() {
+	const savedState = localStorage.getItem('experimentState')
+	if (savedState) {
+		const parsed = JSON.parse(savedState)
+		if (parsed.version !== STATE_VERSION) {
+			localStorage.removeItem('experimentState')
+			initExperiment()
+			return
+		}
+		if (parsed.currentTrial > TOTAL_TRIALS) {
+			const dataSubmitted = localStorage.getItem('dataSubmitted')
+			if (dataSubmitted !== 'true') {
+				loadSavedState()
+				submitData()
+			}
+			else {
+				router.push('/experiment-end')
+			}
+		}
+		else {
+			initExperiment()
+		}
 	}
 	else {
-		submitData()
+		initExperiment()
 	}
 }
 
@@ -222,21 +300,18 @@ async function submitData() {
 	const experimentEndTimestamp = Date.now()
 	const experimentDuration = experimentEndTimestamp - experimentStartTimestamp.value
 
-	// 判断catch trial是否全部正确
 	const allCatchTrialsCorrect = catchTrialResults.value.every(result => result === 'true')
 
-	// 将 catch trial 正确性添加到 participantInfo 中
-	// 新增代码：获取 user_id 并添加到 participantInfo 中
 	const userId = localStorage.getItem('user_id')
 	const questionnaireId = localStorage.getItem('questionnaire_id')
 	const updatedParticipantInfo = {
 		...participantInfo,
 		catchTrialCorrect: allCatchTrialsCorrect.toString(),
-		user_id: userId, // 添加 user_id
-		questionnaire_id: questionnaireId, // 添加 questionnaire_id
-		experimentStartDateTime: experimentStartTime.value, // 记录实验开始时间（中国时区）
-		experimentEndDateTime: experimentEndTime, // 记录实验结束时间（中国时区）
-		experimentDuration, // 记录实验总时长（毫秒）
+		user_id: userId,
+		questionnaire_id: questionnaireId,
+		experimentStartDateTime: experimentStartTime.value,
+		experimentEndDateTime: experimentEndTime,
+		experimentDuration,
 	}
 
 	const experimentData = {
@@ -247,11 +322,9 @@ async function submitData() {
 	loading.value = true
 	loadingProgress.value = 0
 	try {
-		const response = await fetch('https://map.blog1.top/api/submit_data', {
+		const response = await fetch(`${import.meta.env.VITE_EXPERIMENT_API_URL}/submit_data`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(experimentData),
 			mode: 'cors',
 			credentials: 'same-origin',
@@ -264,9 +337,7 @@ async function submitData() {
 		const result = await response.json()
 		console.log('Data submitted successfully:', result)
 
-		// Mark data as submitted
 		localStorage.setItem('dataSubmitted', 'true')
-		// 更新 participantInfo 以包含 catchTrialCorrect
 		localStorage.setItem('participantInfo', JSON.stringify(updatedParticipantInfo))
 
 		showToast('数据提交成功')
@@ -281,37 +352,6 @@ async function submitData() {
 	}
 }
 
-// Modify the checkAndSubmitData function
-function checkAndSubmitData() {
-	const savedState = localStorage.getItem('experimentState')
-	if (savedState) {
-		const parsedState = JSON.parse(savedState)
-		if (parsedState.currentTrial > parsedState.totalTrials) {
-			// Experiment is complete, check if data was submitted
-			const dataSubmitted = localStorage.getItem('dataSubmitted')
-			if (dataSubmitted !== 'true') {
-				// Data was not submitted successfully, try to submit again
-				loadSavedState()
-				submitData()
-			}
-			else {
-				// Data was submitted successfully, redirect to experiment end page
-				router.push('/experiment-end')
-			}
-		}
-		else {
-			// Experiment is not complete, resume from where it left off
-			loadSavedState()
-			startTrial()
-		}
-	}
-	else {
-		// No saved state, start a new experiment
-		loadImages()
-	}
-}
-
-// Modify the onMounted function
 onMounted(async () => {
 	if (!checkExperimentStatus()) {
 		return
@@ -323,56 +363,12 @@ onMounted(async () => {
 		return
 	}
 
-	calculateImageSize()
-	window.addEventListener('resize', calculateImageSize)
 	checkAndSubmitData()
 })
 
 onUnmounted(() => {
-	window.removeEventListener('resize', calculateImageSize) // 添加这一行
+	// cleanup if needed
 })
-
-function loadImages() {
-	// 检查是否有保存的图片数据
-	const savedState = localStorage.getItem('experimentState')
-	if (savedState) {
-		const parsedState = JSON.parse(savedState)
-		allImages.value = parsedState.allImages
-		catchImages.value = parsedState.catchImages
-		currentTrial.value = parsedState.currentTrial
-		trialData.value = parsedState.trialData
-		catchTrialIndices.value = parsedState.catchTrialIndices
-		totalTrials.value = parsedState.totalTrials || 105 // 修改为105
-		experimentStartTime.value = parsedState.experimentStartTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-		experimentStartTimestamp.value = parsedState.experimentStartTimestamp || Date.now()
-		catchTrialResults.value = parsedState.catchTrialResults || []
-		imagePairs.value = parsedState.imagePairs || []
-	}
-	else {
-		// 使用预加载时生成的图片对
-		imagePairs.value = getImagePairs()
-		// 将所有需要用到的图片ID转换为图片对象
-		const uniqueIds = [...new Set(imagePairs.value.flat())]
-		allImages.value = uniqueIds.map(id => ({
-			id,
-			image_url: `https://image.blog1.top/inz/${id.toString().padStart(5, '0')}.jpg`,
-		}))
-
-		catchImages.value = [
-			{ id: 'empty', image_url: 'https://image.blog1.top/empty.jpg' },
-		]
-		// 随机生成5个catch trial的索引
-		while (catchTrialIndices.value.length < 5) {
-			const randomIndex = Math.floor(Math.random() * 100) + 1
-			if (!catchTrialIndices.value.includes(randomIndex)) {
-				catchTrialIndices.value.push(randomIndex)
-			}
-		}
-		experimentStartTime.value = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-		experimentStartTimestamp.value = Date.now()
-	}
-	startTrial()
-}
 </script>
 
 <style lang="less" scoped>
@@ -380,58 +376,198 @@ function loadImages() {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: 20px;
+	padding: 12px;
+	min-height: 100vh;
+	box-sizing: border-box;
+}
 
-	h2 {
-		margin-bottom: 10px;
-		font-size: 24px;
-		color: #333;
-	}
+.van-progress {
+	width: 100%;
+	max-width: 1200px;
 }
 
 .content {
 	width: 100%;
-	max-width: 800px;
-	margin-top: 20px;
+	max-width: 1200px;
+	margin-top: 12px;
 }
 
 .prompt {
 	text-align: center;
 	font-size: 20px;
-	margin-bottom: 20px;
+	margin-bottom: 16px;
 	color: #444;
+}
+
+.highlight-text {
+	font-size: 28px;
+	font-weight: bold;
+	color: #1989fa;
+}
+
+.prompt-hint {
+	display: block;
+	font-size: 14px;
+	font-weight: normal;
+	color: #999;
+	margin-top: 4px;
 }
 
 .image-choice {
 	display: flex;
-	justify-content: space-around;
-	flex-wrap: wrap;
+	flex-direction: column;
+	gap: 0;
+	align-items: center;
+}
 
-	.van-image {
-		margin: 10px;
-		cursor: pointer;
+.vs-separator {
+	font-size: 18px;
+	font-weight: bold;
+	color: #999;
+	padding: 4px 0;
+	user-select: none;
+	flex-shrink: 0;
+}
 
-		&.disabled {
-			pointer-events: none;
-			opacity: 0.5;
-		}
+.image-card {
+	position: relative;
+	width: 100%;
+	box-sizing: border-box;
+	border-radius: 12px;
+	overflow: hidden;
+	cursor: pointer;
+	border: 3px solid transparent;
+	background: #fff;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	transition:
+		border-color 0.2s,
+		box-shadow 0.2s,
+		transform 0.15s;
+
+	&:hover {
+		border-color: #1989fa;
+		box-shadow: 0 4px 16px rgba(25, 137, 250, 0.25);
+		transform: translateY(-2px);
+	}
+
+	&:active {
+		transform: translateY(0);
+	}
+
+	&.disabled {
+		pointer-events: none;
+		opacity: 0.5;
 	}
 }
 
-.van-progress {
-	margin-top: 20px;
-	width: 100%;
-}
-
-.loading-text {
-	margin-top: 10px;
-	font-size: 16px;
-	color: #666;
-}
-
-.highlight-text {
-	font-size: 30px;
+.image-label {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background: #1989fa;
+	color: #fff;
+	font-size: 18px;
 	font-weight: bold;
-	color: #1989fa;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.trial-image {
+	display: block;
+	width: 100%;
+	height: auto;
+
+	@media (min-width: 769px) {
+		max-height: calc((100vh - 140px) / 2);
+		object-fit: contain;
+	}
+}
+
+.zoom-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	background: rgba(0, 0, 0, 0.85);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 16px;
+	overflow: auto;
+}
+
+.zoom-header {
+	width: 100%;
+	max-width: 1400px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+	flex-shrink: 0;
+}
+
+.zoom-title {
+	font-size: 24px;
+	font-weight: bold;
+	color: #fff;
+}
+
+.zoom-close {
+	width: 36px;
+	height: 36px;
+	border: none;
+	border-radius: 50%;
+	background: rgba(255, 255, 255, 0.2);
+	color: #fff;
+	font-size: 20px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+
+	&:hover {
+		background: rgba(255, 255, 255, 0.4);
+	}
+}
+
+.zoom-image {
+	max-width: 100%;
+	max-height: calc(100vh - 80px);
+	object-fit: contain;
+	border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+	.experiment {
+		padding: 8px;
+	}
+
+	.prompt {
+		font-size: 18px;
+		margin-bottom: 12px;
+	}
+
+	.highlight-text {
+		font-size: 24px;
+	}
+
+	.image-label {
+		width: 28px;
+		height: 28px;
+		font-size: 14px;
+		top: 8px;
+		left: 8px;
+	}
+
+	.vs-separator {
+		font-size: 16px;
+		padding: 6px 0;
+	}
 }
 </style>

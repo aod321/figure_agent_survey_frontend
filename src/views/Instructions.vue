@@ -1,72 +1,51 @@
 <template>
 	<div class="instructions">
 		<h1 class="title">
-			实验指导
+			论文 Pipeline 图像质量比较问卷说明
 		</h1>
 		<div class="instruction-content">
-			<p>亲爱的参与者，欢迎您参加我们的实验！在接下来的任务中，您将看到两张不同的地图。我们希望您能想象自己以<strong class="highlight">第一人称视角</strong>在这些地图中实际行走(下文简称为导航)，并判断哪张地图更难完成这个导航任务。</p>
-			<p>您的任务是：从展示的两张地图中，选择一张您认为<strong class="highlight">更难</strong>进行导航的地图。</p>
-			<p>在本实验中，我们定义导航任务的难度为：在地图上<strong class="highlight">任选两个点</strong>作为<strong class="highlight">起点</strong>和<strong class="highlight">终点</strong>，想象以第一人称视角从起点走到终点的难易程度。</p>
-			<p>举个例子：屏幕上会显示上下两张地图。如果您觉得上面的地图<strong class="highlight">更难</strong>导航，就请点击上面的图片；如果您认为下面的地图<strong class="highlight">更难</strong>导航，则点击下面的图片。</p>
-			<div class="image-container">
-				<img v-for="(image, index) in instructionImages" :key="index" :src="image" :alt="`示例图片 ${index + 1}`" class="instruction-image">
+			<p>您将看到<strong class="highlight">多组</strong>论文 Pipeline 图像。每组包含<strong class="highlight">两张来自同一篇论文的方法流程图</strong>。请在每组中选择<strong class="highlight">您认为更好的那一张</strong>。</p>
+
+			<p>评判时主要参考以下四个方面：</p>
+
+			<div class="criteria-list">
+				<div class="criteria-item">
+					<h3>技术准确性</h3>
+					<p>符号、术语和组件是否正确，数据流和箭头方向是否合理。</p>
+				</div>
+				<div class="criteria-item">
+					<h3>视觉清晰度</h3>
+					<p>图像是否清晰、层次分明，不拥挤且易于阅读。</p>
+				</div>
+				<div class="criteria-item">
+					<h3>结构逻辑</h3>
+					<p>模块划分是否清楚，流程是否连贯，结构是否合理。</p>
+				</div>
+				<div class="criteria-item">
+					<h3>易理解性</h3>
+					<p>是否直观易懂，不需要大量文字也能理解方法。</p>
+				</div>
 			</div>
-			<p class="note">
-				如果您有任何疑问，请随时向我们的工作人员寻求帮助，我们很乐意为您解答。
-			</p>
+
+			<p>请<strong class="highlight">根据整体质量选择更好的图像，点击对应图片即可</strong>。长按图片可放大查看细节。</p>
+			<p>实验进度会自动保存，您可以中途退出，下次打开后将从上次的位置继续。</p>
 		</div>
-		<van-button type="primary" size="large" :disabled="isPreloading" class="instructions-button" @click="startExperiment">
-			{{ isPreloading ? '资源加载中...' : '开始实验' }}
+		<van-button type="primary" size="large" class="instructions-button" @click="startExperiment">
+			开始实验
 		</van-button>
-		<div v-if="isPreloading" class="preload-status">
-			<van-progress :percentage="loadingProgress" :stroke-width="8" />
-			<p class="loading-text">
-				{{ loadingText }}
-			</p>
-		</div>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { preloadImages, setPreloadStatus } from '@/utils/preloader'
 import { checkApiStatus } from '@/utils/apiCheck'
 
 const router = useRouter()
-const instructionImages = ref([
-	'https://image.blog1.top/intro_empty.jpg',
-	'https://image.blog1.top/intro_hard.jpg',
-])
 
-const isPreloading = ref(false)
-const loadingProgress = ref(0)
-
-const loadingText = computed(() => {
-	if (loadingProgress.value < 100) {
-		return `正在加载资源...${loadingProgress.value}%`
-	}
-	return '加载完成，准备开始实验'
-})
-
-async function startExperiment() {
-	if (isPreloading.value) {
-		return
-	}
-
-	isPreloading.value = true
-	try {
-		await preloadImages((progress) => {
-			loadingProgress.value = progress
-		})
-		localStorage.setItem('hasSeenInstructions', 'true')
-		setPreloadStatus(true)
-		router.push({ name: 'Experiment' })
-	}
-	catch (error) {
-		console.error('预加载图片时出错:', error)
-		isPreloading.value = false
-	}
+function startExperiment() {
+	localStorage.setItem('hasSeenInstructions', 'true')
+	router.push({ name: 'Experiment' })
 }
 
 onMounted(async () => {
@@ -127,35 +106,28 @@ p {
 	font-weight: 600;
 }
 
-.image-container {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	margin: 32px 0;
+.criteria-list {
+	margin: 16px 0 24px;
 }
 
-.instruction-image {
-	width: 100%;
-	max-width: 250px;
-	height: auto;
-	object-fit: contain;
+.criteria-item {
 	margin-bottom: 16px;
-	border-radius: 4px;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-	transition:
-		transform 0.3s ease,
-		box-shadow 0.3s ease;
+	padding: 16px 20px;
+	background-color: #f0f6ff;
+	border-radius: 6px;
+	border-left: 4px solid #3498db;
 }
 
-.instruction-image:hover {
-	transform: scale(1.05);
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+.criteria-item h3 {
+	margin: 0 0 6px;
+	font-size: 22px;
+	color: #2c3e50;
 }
 
-.note {
-	font-style: italic;
-	color: #7f8c8d;
-	font-size: 16px;
+.criteria-item p {
+	margin: 0;
+	font-size: 20px;
+	color: #555;
 }
 
 .instructions-button {
@@ -185,8 +157,12 @@ p {
 		line-height: 1.6;
 	}
 
-	.instruction-image {
-		max-width: 70%;
+	.criteria-item h3 {
+		font-size: 18px;
+	}
+
+	.criteria-item p {
+		font-size: 16px;
 	}
 
 	.instructions-button {

@@ -2,13 +2,9 @@
 	<div class="experiment-end">
 		<h1>实验结束</h1>
 		<p>感谢您的参与！</p>
-		<div v-if="participantInfo" class="participant-info">
-			<p><strong>年龄：</strong>{{ participantInfo.age }}</p>
-			<p><strong>性别：</strong>{{ participantInfo.gender }}</p>
-		</div>
 		<p>请<strong>务必</strong>点击下方按钮提交数据</p>
 		<van-button type="primary" :disabled="isSubmitting" @click="goToSurvey">
-			提交数据并返回平台
+			提交数据并领取红包
 		</van-button>
 	</div>
 </template>
@@ -31,10 +27,10 @@ onMounted(() => {
 	checkExperimentCompletion()
 
 	// 检查是否已经提交过数据
-	const hasSubmitted = localStorage.getItem('worldlabSubmitted')
+	const hasSubmitted = localStorage.getItem('experimentSubmitted')
 	if (hasSubmitted === 'true') {
 		showToast('数据已提交')
-		window.location.href = 'https://www.worldlab.site/dashboard'
+		window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
 		return
 	}
 
@@ -71,9 +67,9 @@ function goToSurvey() {
 	}
 
 	// 检查是否已经提交过数据
-	if (localStorage.getItem('worldlabSubmitted') === 'true') {
+	if (localStorage.getItem('experimentSubmitted') === 'true') {
 		showToast('数据已提交')
-		window.location.href = 'https://www.worldlab.site/dashboard'
+		window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
 		return
 	}
 
@@ -90,36 +86,40 @@ function goToSurvey() {
 
 	const experimentData = JSON.parse(experimentState)
 
-	// 准备发送的数据
+	// 准备发送的数据（匹配后端 ExperimentData 格式）
 	const data = {
-		questionnaire_id: questionnaireId.value,
-		user_id: userId.value,
-		start_time: startTime.value,
-		completion_time: new Date().toISOString(),
-		status: 'reviewing',
-		response_data: {
-			// 基本信息
-			age: participantInfo.value.age,
+		participantInfo: {
 			gender: participantInfo.value.gender,
-			// 实验数据
-			experimentStartTime: experimentData.experimentStartTime,
-			experimentEndTime: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
+			phone: participantInfo.value.phone || '',
+			researchRole: participantInfo.value.researchRole || '',
+			researchYears: participantInfo.value.researchYears || '',
+			pipelineTime: participantInfo.value.pipelineTime || '',
+			researchRoleOther: participantInfo.value.researchRoleOther || undefined,
+			catchTrialCorrect: Array.isArray(experimentData.catchTrialResults) ? JSON.stringify(experimentData.catchTrialResults) : (experimentData.catchTrialResults || undefined),
+			user_id: userId.value || '',
+			questionnaire_id: questionnaireId.value || '',
+			experimentStartDateTime: experimentData.experimentStartTime,
+			experimentEndDateTime: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
 			experimentDuration: Date.now() - experimentData.experimentStartTimestamp,
-			totalTrials: experimentData.totalTrials,
-			catchTrialResults: experimentData.catchTrialResults,
-			// 实验结果数据
-			trialData: experimentData.trialData.map((trial: any) => ({
-				trial_id: trial.trial_id,
-				trial_type: trial.trial_type,
-				selected_image_id: trial.selected_image_id,
-				reaction_time: trial.reaction_time,
-				catch_trial_correct: trial.catch_trial_correct,
-				trial_start_time: trial.trial_start_datetime,
-				trial_end_time: trial.trial_end_datetime,
-			})),
 		},
-		reward_amount: 10,
-		test: true,
+		trialData: experimentData.trialData.map((trial: any) => ({
+			trial_id: trial.trial_id,
+			trial_type: trial.trial_type,
+			selected_index: trial.selected_index ?? trial.selected_image_id ?? 0,
+			reaction_time: trial.reaction_time,
+			timestamp: trial.timestamp ?? Date.now(),
+			catch_trial_correct: trial.catch_trial_correct,
+			trial_start_datetime: trial.trial_start_datetime,
+			trial_end_datetime: trial.trial_end_datetime,
+			paperId: trial.paperId,
+			method1: trial.method1,
+			method2: trial.method2,
+			selectedMethod: trial.selectedMethod,
+			catchFile: trial.catchFile,
+			mainPaperId: trial.mainPaperId,
+			mainMethod: trial.mainMethod,
+			selectedCatch: trial.selectedCatch,
+		})),
 	}
 
 	// 发送数据的函数
@@ -137,7 +137,8 @@ function goToSurvey() {
 				redirect: 'follow' as RequestRedirect,
 			}
 
-			const response = await fetch('https://www.worldlab.site/api/callback/questionnaire', requestOptions)
+			const apiUrl = import.meta.env.VITE_EXPERIMENT_API_URL || 'http://localhost:8100'
+			const response = await fetch(`${apiUrl}/submit_data`, requestOptions)
 
 			if (!response.ok) {
 				const errorText = await response.text()
@@ -148,10 +149,10 @@ function goToSurvey() {
 			console.log('数据提交成功:', result)
 
 			// 标记数据已提交
-			localStorage.setItem('worldlabSubmitted', 'true')
+			localStorage.setItem('experimentSubmitted', 'true')
 
 			showToast('正在跳转...')
-			window.location.href = 'https://www.worldlab.site/dashboard'
+			window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
 		}
 		catch (error: unknown) {
 			console.error('提交数据时出错:', error)
@@ -181,19 +182,6 @@ function goToSurvey() {
 h1 {
 	font-size: 36px;
 	margin-bottom: 30px;
-}
-
-.participant-info {
-	margin: 30px 0;
-	padding: 30px;
-	border: 1px solid #ccc;
-	border-radius: 8px;
-	background-color: #f9f9f9;
-}
-
-.participant-info p {
-	font-size: 24px;
-	margin-bottom: 15px;
 }
 
 .van-button {
