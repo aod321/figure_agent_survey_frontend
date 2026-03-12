@@ -1,22 +1,39 @@
 <template>
 	<div class="thank-you">
 		<h1>感谢参与</h1>
-		<p>实验已经结束，感谢您的宝贵时间和贡献。</p>
-		<p>如果您有任何问题，请联系实验管理员。</p>
+		<template v-if="canWechatPay === '是'">
+			<p>实验已经结束，感谢您的宝贵时间和贡献。</p>
+			<van-button type="primary" @click="goToWjx">
+				跳转问卷星领取红包
+			</van-button>
+		</template>
+		<template v-else>
+			<p>感谢您的参与！请联系工作人员 shuan124@jhu.edu 领取您的被试费。</p>
+		</template>
 	</div>
 </template>
 
 <script lang="ts" setup>
-import { onMounted } from 'vue'
-// import { useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
 
-// const router = useRouter()
+const canWechatPay = ref('')
+
+function goToWjx() {
+	window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+}
 
 onMounted(() => {
 	// 防止用户通过后退按钮返回到之前的页面
 	window.history.pushState(null, '', window.location.href)
 	window.onpopstate = function () {
 		window.history.pushState(null, '', window.location.href)
+	}
+
+	// 读取 canWechatPay
+	const storedInfo = localStorage.getItem('participantInfo')
+	if (storedInfo) {
+		const parsed = JSON.parse(storedInfo)
+		canWechatPay.value = parsed.canWechatPay || ''
 	}
 })
 </script>
@@ -38,5 +55,11 @@ h1 {
 
 p {
 	margin-bottom: 10px;
+}
+
+.van-button {
+	margin-top: 20px;
+	font-size: 18px;
+	padding: 12px 24px;
 }
 </style>

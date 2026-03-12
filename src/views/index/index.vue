@@ -1,6 +1,9 @@
 <template>
 	<div class="experiment">
-		<van-progress :percentage="experimentProgress" :stroke-width="8" />
+		<div class="progress-row">
+			<van-progress :percentage="experimentProgress" :stroke-width="8" class="progress-bar" />
+			<span class="progress-text">{{ currentTrial - 1 }}/{{ TOTAL_TRIALS }}</span>
+		</div>
 		<div class="content">
 			<h1 class="prompt">
 				请点击您认为<span class="highlight-text">更好</span>的图片
@@ -61,7 +64,7 @@ import type { Trial } from '@/utils/preloader'
 
 const router = useRouter()
 
-const STATE_VERSION = 2
+const STATE_VERSION = 3
 
 const trials = ref<Trial[]>([])
 const currentImages = ref<{ url: string }[]>([])
@@ -381,9 +384,22 @@ onUnmounted(() => {
 	box-sizing: border-box;
 }
 
-.van-progress {
+.progress-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	width: 100%;
 	max-width: 1200px;
+}
+
+.progress-bar {
+	flex: 1;
+}
+
+.progress-text {
+	font-size: 14px;
+	color: #666;
+	white-space: nowrap;
 }
 
 .content {

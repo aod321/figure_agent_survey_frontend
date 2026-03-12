@@ -4,7 +4,7 @@
 		<p>感谢您的参与！</p>
 		<p>请<strong>务必</strong>点击下方按钮提交数据</p>
 		<van-button type="primary" :disabled="isSubmitting" @click="goToSurvey">
-			提交数据并领取红包
+			{{ canWechatPay === '是' ? '提交数据并领取红包' : '提交数据' }}
 		</van-button>
 	</div>
 </template>
@@ -17,6 +17,8 @@ import { showToast } from 'vant'
 const router = useRouter()
 const participantInfo = ref<any>(null)
 const isSubmitting = ref(false)
+const submitted = ref(false)
+const canWechatPay = ref('')
 
 // 新增变量以存储 questionnaire_id 和 user_id
 const questionnaireId = ref<string | null>(null)
@@ -26,11 +28,24 @@ const startTime = ref<string | null>(null)
 onMounted(() => {
 	checkExperimentCompletion()
 
+	// 从 localStorage 获取参与者信息
+	const storedInfo = localStorage.getItem('participantInfo')
+	if (storedInfo) {
+		participantInfo.value = JSON.parse(storedInfo)
+		canWechatPay.value = participantInfo.value.canWechatPay || ''
+	}
+
 	// 检查是否已经提交过数据
 	const hasSubmitted = localStorage.getItem('experimentSubmitted')
 	if (hasSubmitted === 'true') {
 		showToast('数据已提交')
-		window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+		submitted.value = true
+		if (canWechatPay.value === '是') {
+			window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+		}
+		else {
+			router.push('/thank-you')
+		}
 		return
 	}
 
@@ -38,12 +53,6 @@ onMounted(() => {
 	questionnaireId.value = localStorage.getItem('questionnaire_id')
 	userId.value = localStorage.getItem('user_id')
 	startTime.value = localStorage.getItem('start_time')
-
-	// 从 localStorage 获取参与者信息
-	const storedInfo = localStorage.getItem('participantInfo')
-	if (storedInfo) {
-		participantInfo.value = JSON.parse(storedInfo)
-	}
 })
 
 function checkExperimentCompletion() {
@@ -69,8 +78,14 @@ function goToSurvey() {
 	// 检查是否已经提交过数据
 	if (localStorage.getItem('experimentSubmitted') === 'true') {
 		showToast('数据已提交')
-		window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
-		return
+		submitted.value = true
+		if (canWechatPay.value === '是') {
+			return
+		}
+		else {
+			router.push('/thank-you')
+			return
+		}
 	}
 
 	localStorage.setItem('experimentCompleted', 'true')
@@ -90,6 +105,7 @@ function goToSurvey() {
 	const data = {
 		participantInfo: {
 			gender: participantInfo.value.gender,
+			canWechatPay: participantInfo.value.canWechatPay || '',
 			phone: participantInfo.value.phone || '',
 			researchRole: participantInfo.value.researchRole || '',
 			researchYears: participantInfo.value.researchYears || '',
@@ -150,9 +166,18 @@ function goToSurvey() {
 
 			// 标记数据已提交
 			localStorage.setItem('experimentSubmitted', 'true')
+			submitted.value = true
 
-			showToast('正在跳转...')
-			window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+			if (canWechatPay.value === '是') {
+				showToast('数据提交成功，正在跳转问卷星...')
+				setTimeout(() => {
+					window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+				}, 1000)
+			}
+			else {
+				showToast('数据提交成功')
+				router.push('/thank-you')
+			}
 		}
 		catch (error: unknown) {
 			console.error('提交数据时出错:', error)

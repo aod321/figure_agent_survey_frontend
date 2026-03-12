@@ -21,19 +21,40 @@
 							</van-radio-group>
 						</template>
 					</van-field>
+					<van-field name="canWechatPay" label="收款方式" required :rules="[{ required: true, message: '请选择收款方式' }]">
+						<template #input>
+							<div>
+								<p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">
+									请问您的微信是否可以收款？
+								</p>
+								<van-radio-group v-model="canWechatPay" direction="horizontal">
+									<van-radio name="是">
+										是
+									</van-radio>
+									<van-radio name="否">
+										否
+									</van-radio>
+								</van-radio-group>
+							</div>
+						</template>
+					</van-field>
 					<van-field
+						v-if="canWechatPay === '是'"
 						v-model="phone"
 						name="phone"
-						label="手机号"
+						label="国内手机号"
 						type="tel"
 						required
-						placeholder="仅用于收款"
+						placeholder="仅用于自动发红包"
 						:rules="[
 							{ required: true, message: '请填写手机号' },
 							{ validator: validatePhone, message: '请输入有效的手机号' },
 						]"
 					/>
-					<van-field name="researchRole" label="科研身份" required :rules="[{ required: true, message: '请选择科研身份' }]">
+					<div v-if="canWechatPay === '否'" style="padding: 10px 16px; color: #666; font-size: 14px;">
+						请实验结束后联系工作人员领取被试费
+					</div>
+					<van-field name="researchRole" label="职业身份" required :rules="[{ required: true, message: '请选择职业身份' }]">
 						<template #input>
 							<van-radio-group v-model="researchRole" direction="vertical">
 								<van-radio name="教授">
@@ -42,8 +63,14 @@
 								<van-radio name="博士后">
 									博士后
 								</van-radio>
-								<van-radio name="学生">
-									学生
+								<van-radio name="博士生">
+									博士生
+								</van-radio>
+								<van-radio name="硕士生">
+									硕士生
+								</van-radio>
+								<van-radio name="本科生">
+									本科生
 								</van-radio>
 								<van-radio name="公司科研人员">
 									公司科研人员
@@ -60,8 +87,8 @@
 						name="researchRoleOther"
 						label="请说明"
 						required
-						placeholder="请填写您的科研身份"
-						:rules="[{ required: true, message: '请填写科研身份' }]"
+						placeholder="请填写您的职业身份"
+						:rules="[{ required: true, message: '请填写职业身份' }]"
 					/>
 					<van-field
 						v-model="researchYears"
@@ -75,28 +102,30 @@
 							{ validator: validateYears, message: '请输入有效的年数' },
 						]"
 					/>
-					<van-field name="pipelineTime" label="制作 Pipeline 图耗时" required :rules="[{ required: true, message: '请选择耗时' }]">
+					<van-field name="pipelineTime" label="制作 Pipeline 图（方法框架流图）耗时" required :rules="[{ required: true, message: '请选择耗时' }]">
 						<template #input>
-							<van-radio-group v-model="pipelineTime" direction="vertical">
-								<van-radio name="几小时">
-									几小时
-								</van-radio>
-								<van-radio name="几天">
-									几天
-								</van-radio>
-								<van-radio name="一周">
-									一周
-								</van-radio>
-								<van-radio name="两三周">
-									两三周
-								</van-radio>
-								<van-radio name="一月及以上">
-									一月及以上
-								</van-radio>
-								<van-radio name="其他">
-									其他
-								</van-radio>
-							</van-radio-group>
+							<div class="pipeline-time-section">
+								<p class="pipeline-time-description">
+									请问您在一篇论文的 Pipeline 图（方法框架流图）上，从零开始构思到最终完成并放入论文终稿，大概需要花费多长时间？
+								</p>
+								<van-radio-group v-model="pipelineTime" direction="vertical">
+									<van-radio name="几小时">
+										几小时
+									</van-radio>
+									<van-radio name="一天到两天">
+										一天到两天
+									</van-radio>
+									<van-radio name="三天到一周">
+										三天到一周
+									</van-radio>
+									<van-radio name="两周及以上">
+										两周及以上
+									</van-radio>
+									<van-radio name="其他">
+										其他
+									</van-radio>
+								</van-radio-group>
+							</div>
 						</template>
 					</van-field>
 					<van-field
@@ -128,6 +157,7 @@ import { checkApiStatus } from '@/utils/apiCheck'
 const router = useRouter()
 
 const gender = ref('')
+const canWechatPay = ref('')
 const researchRole = ref('')
 const researchRoleOther = ref('')
 const researchYears = ref('')
@@ -160,10 +190,11 @@ function checkExperimentStatus() {
 	}
 	else {
 		const participantInfo = localStorage.getItem('participantInfo')
-		if (participantInfo && JSON.parse(participantInfo)?.phone) {
+		if (participantInfo && JSON.parse(participantInfo)?.gender) {
 			// 如果已经填写过信息，加载参与者信息, 预加载资源, 跳转到指导语页面
 			const parsedInfo = JSON.parse(participantInfo)
 			gender.value = parsedInfo.gender || ''
+			canWechatPay.value = parsedInfo.canWechatPay || ''
 			phone.value = parsedInfo.phone || ''
 			researchRole.value = parsedInfo.researchRole || ''
 			researchYears.value = parsedInfo.researchYears || ''
@@ -175,8 +206,13 @@ function checkExperimentStatus() {
 
 function submitInfo() {
 	// 验证表单
-	if (!gender.value || !phone.value || !researchRole.value || !researchYears.value || !pipelineTime.value) {
+	if (!gender.value || !canWechatPay.value || !researchRole.value || !researchYears.value || !pipelineTime.value) {
 		showToast('请填写所有必填信息')
+		return
+	}
+
+	if (canWechatPay.value === '是' && !phone.value) {
+		showToast('请填写手机号')
 		return
 	}
 
@@ -186,7 +222,7 @@ function submitInfo() {
 	}
 
 	if (researchRole.value === '其他' && !researchRoleOther.value) {
-		showToast('请填写您的科研身份')
+		showToast('请填写您的职业身份')
 		return
 	}
 
@@ -195,7 +231,7 @@ function submitInfo() {
 		return
 	}
 
-	if (!validatePhone(phone.value)) {
+	if (canWechatPay.value === '是' && !validatePhone(phone.value)) {
 		showToast('请输入有效的手机号')
 		return
 	}
@@ -203,7 +239,8 @@ function submitInfo() {
 	// Save participant info
 	const participantInfo = {
 		gender: gender.value,
-		phone: phone.value,
+		canWechatPay: canWechatPay.value,
+		phone: canWechatPay.value === '是' ? phone.value : 'N/A',
 		researchRole: researchRole.value === '其他' ? researchRoleOther.value : researchRole.value,
 		researchYears: researchYears.value,
 		pipelineTime: pipelineTime.value === '其他' ? pipelineTimeOther.value : pipelineTime.value,
@@ -239,6 +276,19 @@ function submitInfo() {
 	font-size: 1.8em;
 	color: #333;
 	font-weight: 600;
+}
+
+.pipeline-time-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.pipeline-time-description {
+	font-size: 14px;
+	color: #666;
+	line-height: 1.5;
+	margin: 0;
 }
 
 .preload-status {

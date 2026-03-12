@@ -1,10 +1,10 @@
 <template>
 	<div class="instructions">
 		<h1 class="title">
-			论文 Pipeline 图像质量比较问卷说明
+			论文 Pipeline 图质量比较问卷说明
 		</h1>
 		<div class="instruction-content">
-			<p>您将看到<strong class="highlight">多组</strong>论文 Pipeline 图像。每组包含<strong class="highlight">两张来自同一篇论文的方法流程图</strong>。请在每组中选择<strong class="highlight">您认为更好的那一张</strong>。</p>
+			<p>您将看到<strong class="highlight">多组</strong>论文 Pipeline 图。每组包含<strong class="highlight">两张来自同一篇论文的方法流程图</strong>。请在每组中选择<strong class="highlight">您认为更好的那一张</strong>。</p>
 
 			<p>评判时主要参考以下四个方面：</p>
 
@@ -29,6 +29,9 @@
 
 			<p>请<strong class="highlight">根据整体质量选择更好的图像，点击对应图片即可</strong>。长按图片可放大查看细节。</p>
 			<p>实验进度会自动保存，您可以中途退出，下次打开后将从上次的位置继续。</p>
+			<p style="color: #e67e22; font-weight: 500;">
+				如有任何问题，请联系工作人员：shuan124@jhu.edu
+			</p>
 		</div>
 		<van-button type="primary" size="large" class="instructions-button" @click="startExperiment">
 			开始实验

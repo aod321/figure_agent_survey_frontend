@@ -25,8 +25,8 @@ export type Trial = RegularTrial | CatchTrial
 
 // ---- Constants ----
 
-export const TOTAL_TRIALS = 500
-const REGULAR_TRIALS = 495
+export const TOTAL_TRIALS = 200
+const REGULAR_TRIALS = 195
 const CATCH_TRIALS = 5
 const LOOKAHEAD = 10
 
@@ -55,11 +55,10 @@ function mainImageUrl(paperId: string, method: string): string {
 export function generateTrials(): Trial[] {
 	const paperIds = Object.keys(papers)
 
-	// 1. Build 495 regular trials
-	// Use all 435 papers once, then sample 60 more
+	// 1. Build 195 regular trials
+	// Randomly sample 195 papers from all available papers
 	const shuffled = fisherYatesShuffle(paperIds)
-	const extra = fisherYatesShuffle(paperIds).slice(0, REGULAR_TRIALS - paperIds.length)
-	const regularPapers = [...shuffled, ...extra]
+	const regularPapers = shuffled.slice(0, REGULAR_TRIALS)
 
 	const regularTrials: RegularTrial[] = regularPapers.map((paperId) => {
 		const methods = papers[paperId]
