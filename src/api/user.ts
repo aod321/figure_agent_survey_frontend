@@ -15,17 +15,19 @@
 
 // import { defHttp } from '@/utils/http/axios'
 
+/* eslint-disable no-unused-vars */
 enum Api {
-  BANNER = '/banner',
+	BANNER = '/banner',
 }
+/* eslint-enable no-unused-vars */
 /**
  * 可获取 banner( 轮播图 ) 数据
  * - type: 默认为 0: PC 1: android 2: iphone 3: ipad
  * @param {number=0} type
  */
 export function getBanner(type: number) {
-  return defHttp.post({
-    url: Api.BANNER,
-    params: { type },
-  })
+	return defHttp.post({
+		url: Api.BANNER,
+		params: { type },
+	})
 }

@@ -1,20 +1,10 @@
-/*
- * @Author: DaiYu
- * @Date: 2022-10-15 16:45:41
- * @LastEditors: DaiYu
- * @LastEditTime: 2022-10-18 11:29:00
- * @FilePath: \src\router\modules\base.ts
- */
 import type { RouteRecordRaw } from 'vue-router'
+import ExperimentView from '@/views/index/index.vue'
 
 const baseRoutes: Array<RouteRecordRaw> = [
 	{
-		path: '/participant-info',
-		name: 'ParticipantInfo',
-		component: () => import('@/views/ParticipantInfo.vue'),
-		meta: {
-			title: '被试信息',
-		},
+		path: '/',
+		redirect: '/informed-consent',
 	},
 	{
 		path: '/informed-consent',
@@ -25,26 +15,54 @@ const baseRoutes: Array<RouteRecordRaw> = [
 		},
 	},
 	{
-		path: '/',
-		redirect: '/informed-consent',
+		path: '/participant-info',
+		name: 'ParticipantInfo',
+		component: () => import('@/views/ParticipantInfo.vue'),
+		meta: {
+			title: '被试信息',
+		},
 	},
 	{
 		path: '/instructions',
 		name: 'Instructions',
 		component: () => import('@/views/Instructions.vue'),
 		meta: {
-			title: '实验指导语',
+			title: '实验指导',
+		},
+	},
+	{
+		path: '/preloading',
+		name: 'Preloading',
+		component: () => import('@/views/Preloading.vue'),
+		meta: {
+			title: '加载中',
 		},
 	},
 	{
 		path: '/experiment',
 		name: 'Experiment',
-		component: () => import('@/views/index/index.vue'),
+		component: ExperimentView,
+		meta: {
+			title: '实验',
+		},
 	},
 	{
 		path: '/experiment-end',
 		name: 'ExperimentEnd',
 		component: () => import('@/views/ExperimentEnd.vue'),
+	},
+	{
+		path: '/wechat-only',
+		name: 'WeChatOnly',
+		component: () => import('@/views/WeChatOnly.vue'),
+	},
+	{
+		path: '/network-error',
+		name: 'NetworkError',
+		component: () => import('@/views/NetworkError.vue'),
+		meta: {
+			title: '网络错误',
+		},
 	},
 	{
 		path: '/thank-you',

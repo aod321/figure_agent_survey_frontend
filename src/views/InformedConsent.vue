@@ -33,20 +33,11 @@ onMounted(() => {
 	if (questionnaireId) {
 		localStorage.setItem('questionnaire_id', questionnaireId)
 	}
-	else {
-		localStorage.setItem('questionnaire_id', '33333333-3333-3333-3333-333333333333')
-	}
 	if (userId) {
 		localStorage.setItem('user_id', userId)
 	}
-	else {
-		localStorage.setItem('user_id', '66')
-	}
 	if (startTime) {
 		localStorage.setItem('start_time', startTime)
-	}
-	else {
-		localStorage.setItem('start_time', '2021-11-11T08:08:08.888Z')
 	}
 
 	// 检查API状态

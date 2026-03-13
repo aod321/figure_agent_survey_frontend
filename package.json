@@ -16,7 +16,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build:dev": "vue-tsc --noEmit && vite build --mode development",
-		"build": "vite build --mode production",
+		"build": "vue-tsc --noEmit && vite build --mode production",
 		"typecheck": "npx vue-tsc --noEmit",
 		"preview": "npm run build && vite preview",
 		"deps:fresh": "npx taze -w",
@@ -24,7 +24,7 @@
 		"deps:fresh:minor": "npx taze minor -w",
 		"deps:fresh:patch": "npx taze patch -w",
 		"preinstall": "npx only-allow pnpm",
-		"eslint": "eslint --ext .js,.vue,.ts --ignore-path .eslintignore --fix src",
+		"eslint": "eslint --fix src",
 		"prepare": "husky install",
 		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
 		"generate-manifest": "npx tsx scripts/generate-manifest.ts"

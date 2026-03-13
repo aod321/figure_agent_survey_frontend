@@ -12,7 +12,7 @@ export const OSSURL = 'https://wsjc-web.oss-cn-shenzhen.aliyuncs.com/carMobile/i
 
 // 神策服务地址
 export const SA_SERVER_URL = `https://sensors-datasink.wsecar.com/sa?project=${
-  import.meta.env.VITE_SENSORS || 'default'
+	import.meta.env.VITE_SENSORS || 'default'
 }`
 
 // 高德地图key

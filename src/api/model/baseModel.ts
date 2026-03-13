@@ -6,11 +6,11 @@
  * @FilePath: \src\api\model\baseModel.ts
  */
 export interface BasicPageParams {
-  page: number
-  pageSize: number
+	page: number
+	pageSize: number
 }
 
 export interface BasicFetchResult<T> {
-  items: T[]
-  total: number
+	items: T[]
+	total: number
 }

@@ -48,7 +48,7 @@ const router = useRouter()
 
 function startExperiment() {
 	localStorage.setItem('hasSeenInstructions', 'true')
-	router.push({ name: 'Experiment' })
+	router.push({ name: 'Preloading' })
 }
 
 onMounted(async () => {
@@ -62,7 +62,7 @@ onMounted(async () => {
 		router.push({ name: 'ParticipantInfo' })
 	}
 	else if (localStorage.getItem('hasSeenInstructions') === 'true') {
-		router.push({ name: 'Experiment' })
+		router.push({ name: 'Preloading' })
 	}
 })
 </script>

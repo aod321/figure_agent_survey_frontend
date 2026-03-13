@@ -21,7 +21,7 @@
 					<div class="image-label">
 						A
 					</div>
-					<img :src="currentImages[0]?.url" class="trial-image">
+					<img :src="currentImages[0]?.url" class="trial-image" @error="handleImageError">
 				</div>
 				<div class="vs-separator">
 					VS
@@ -37,7 +37,7 @@
 					<div class="image-label">
 						B
 					</div>
-					<img :src="currentImages[1]?.url" class="trial-image">
+					<img :src="currentImages[1]?.url" class="trial-image" @error="handleImageError">
 				</div>
 			</div>
 		</div>
@@ -55,16 +55,14 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { checkApiStatus } from '@/utils/apiCheck'
-import { TOTAL_TRIALS, generateTrials, preloadAhead } from '@/utils/preloader'
+import { STATE_VERSION, TOTAL_TRIALS, generateTrials, preloadAhead } from '@/utils/preloader'
 import type { Trial } from '@/utils/preloader'
 
 const router = useRouter()
-
-const STATE_VERSION = 3
 
 const trials = ref<Trial[]>([])
 const currentImages = ref<{ url: string }[]>([])
@@ -74,8 +72,6 @@ const trialData = ref<any[]>([])
 const startTime = ref(0)
 const trialStartDateTime = ref('')
 
-const loading = ref(false)
-const loadingProgress = ref(0)
 const isClicked = ref(false)
 const zoomedIndex = ref<number | null>(null)
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
@@ -110,19 +106,25 @@ function loadSavedState(): boolean {
 		return false
 	}
 
-	const parsed = JSON.parse(savedState)
-	if (parsed.version !== STATE_VERSION) {
+	try {
+		const parsed = JSON.parse(savedState)
+		if (parsed.version !== STATE_VERSION) {
+			localStorage.removeItem('experimentState')
+			return false
+		}
+
+		trials.value = parsed.trials
+		currentTrial.value = parsed.currentTrial
+		trialData.value = parsed.trialData
+		experimentStartTime.value = parsed.experimentStartTime
+		experimentStartTimestamp.value = parsed.experimentStartTimestamp
+		catchTrialResults.value = parsed.catchTrialResults || []
+		return true
+	}
+	catch {
 		localStorage.removeItem('experimentState')
 		return false
 	}
-
-	trials.value = parsed.trials
-	currentTrial.value = parsed.currentTrial
-	trialData.value = parsed.trialData
-	experimentStartTime.value = parsed.experimentStartTime
-	experimentStartTimestamp.value = parsed.experimentStartTimestamp
-	catchTrialResults.value = parsed.catchTrialResults || []
-	return true
 }
 
 function saveState() {
@@ -138,13 +140,11 @@ function saveState() {
 	localStorage.setItem('experimentState', JSON.stringify(state))
 }
 
-watch([currentTrial, trialData], saveState, { deep: true })
-
 // ---- Trial logic ----
 
 function startTrial() {
 	if (currentTrial.value > TOTAL_TRIALS) {
-		submitData()
+		router.push('/experiment-end')
 		return
 	}
 
@@ -233,11 +233,19 @@ function handleClick(index: number) {
 	}
 
 	currentTrial.value++
-	if (currentTrial.value <= TOTAL_TRIALS) {
-		startTrial()
-	}
-	else {
-		submitData()
+	saveState()
+	startTrial()
+}
+
+function handleImageError(event: Event) {
+	const img = event.target as HTMLImageElement
+	if (!img.dataset.retried) {
+		img.dataset.retried = 'true'
+		const src = img.src
+		img.src = ''
+		requestAnimationFrame(() => {
+			img.src = src
+		})
 	}
 }
 
@@ -271,87 +279,27 @@ function initExperiment() {
 function checkAndSubmitData() {
 	const savedState = localStorage.getItem('experimentState')
 	if (savedState) {
-		const parsed = JSON.parse(savedState)
-		if (parsed.version !== STATE_VERSION) {
-			localStorage.removeItem('experimentState')
-			initExperiment()
-			return
-		}
-		if (parsed.currentTrial > TOTAL_TRIALS) {
-			const dataSubmitted = localStorage.getItem('dataSubmitted')
-			if (dataSubmitted !== 'true') {
-				loadSavedState()
-				submitData()
+		try {
+			const parsed = JSON.parse(savedState)
+			if (parsed.version !== STATE_VERSION) {
+				localStorage.removeItem('experimentState')
+				initExperiment()
+				return
 			}
-			else {
+			if (parsed.currentTrial > TOTAL_TRIALS) {
 				router.push('/experiment-end')
 			}
+			else {
+				initExperiment()
+			}
 		}
-		else {
+		catch {
+			localStorage.removeItem('experimentState')
 			initExperiment()
 		}
 	}
 	else {
 		initExperiment()
-	}
-}
-
-async function submitData() {
-	const participantInfo = JSON.parse(localStorage.getItem('participantInfo') || '{}')
-
-	const experimentEndTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-	const experimentEndTimestamp = Date.now()
-	const experimentDuration = experimentEndTimestamp - experimentStartTimestamp.value
-
-	const allCatchTrialsCorrect = catchTrialResults.value.every(result => result === 'true')
-
-	const userId = localStorage.getItem('user_id')
-	const questionnaireId = localStorage.getItem('questionnaire_id')
-	const updatedParticipantInfo = {
-		...participantInfo,
-		catchTrialCorrect: allCatchTrialsCorrect.toString(),
-		user_id: userId,
-		questionnaire_id: questionnaireId,
-		experimentStartDateTime: experimentStartTime.value,
-		experimentEndDateTime: experimentEndTime,
-		experimentDuration,
-	}
-
-	const experimentData = {
-		participantInfo: updatedParticipantInfo,
-		trialData: trialData.value,
-	}
-
-	loading.value = true
-	loadingProgress.value = 0
-	try {
-		const response = await fetch(`${import.meta.env.VITE_EXPERIMENT_API_URL}/submit_data`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(experimentData),
-			mode: 'cors',
-			credentials: 'same-origin',
-		})
-
-		if (!response.ok) {
-			throw new Error('Failed to submit data')
-		}
-
-		const result = await response.json()
-		console.log('Data submitted successfully:', result)
-
-		localStorage.setItem('dataSubmitted', 'true')
-		localStorage.setItem('participantInfo', JSON.stringify(updatedParticipantInfo))
-
-		showToast('数据提交成功')
-		router.push('/experiment-end')
-	}
-	catch (error) {
-		console.error('Error submitting data:', error)
-		showToast('数据提交失败，请重试')
-	}
-	finally {
-		loading.value = false
 	}
 }
 

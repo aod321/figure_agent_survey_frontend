@@ -67,7 +67,7 @@ export function isString(val: unknown): val is string {
 	return is(val, 'String')
 }
 
-export function isFunction(val: unknown): val is Function {
+export function isFunction(val: unknown): val is (..._args: unknown[]) => unknown {
 	return typeof val === 'function'
 }
 
@@ -100,8 +100,11 @@ export const isServer = typeof window === 'undefined'
 export const isClient = !isServer
 
 export function isUrl(path: string): boolean {
-	const reg
-
-    = /(((^https?:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+(?::\d+)?|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)$/
-	return reg.test(path)
+	try {
+		const _url = new URL(path, path.startsWith('/') ? 'http://localhost' : undefined)
+		return !!_url
+	}
+	catch {
+		return false
+	}
 }

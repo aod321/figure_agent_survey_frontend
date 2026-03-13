@@ -19,7 +19,7 @@ import { onMounted, ref } from 'vue'
 const canWechatPay = ref('')
 
 function goToWjx() {
-	window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+	window.location.href = 'https://v.wjx.cn/vm/YfS5uW4.aspx#'
 }
 
 onMounted(() => {

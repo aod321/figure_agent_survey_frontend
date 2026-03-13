@@ -6,31 +6,32 @@
  * @FilePath: \src\api\login.ts
  */
 
+import type { LoginParams } from './model/loginModel'
 import { defHttp } from '@/utils/http/axios'
-import { LoginParams } from './model/loginModel'
+
+/* eslint-disable no-unused-vars */
 enum Api {
-  LOGINBYPHONE = '/login/cellphone',
-  SESSION_TIMEOUT = '/user/sessionTimeout',
-  TOKEN_EXPIRED = '/user/tokenExpired',
-  CAPTCHA = '/captcha/sent',
-  LOGINBYCAPTCHA = '/captcha/verify',
-  LOGOUT = '/logout',
-  CHECKLOGINSTATUS = '/login/status',
+	LOGINBYPHONE = '/login/cellphone',
+	CAPTCHA = '/captcha/sent',
+	LOGINBYCAPTCHA = '/captcha/verify',
+	LOGOUT = '/logout',
+	CHECKLOGINSTATUS = '/login/status',
 }
+/* eslint-enable no-unused-vars */
 
 /**
  * @description 手机密码登录
- * @param {Object} params
+ * @param {object} params
  * @param {string} params.phone
  * @param {string} params.password
  * @param {string} params.countrycode=86 国家码，用于国外手机号登录，例如美国传入：1
  * @param {string} params.md5_password md5加密后的密码,传入后 password 将失效
  */
 export function loginByPhone(params: LoginParams) {
-  return defHttp.post({
-    url: Api.LOGINBYPHONE,
-    params,
-  })
+	return defHttp.post({
+		url: Api.LOGINBYPHONE,
+		params,
+	})
 }
 
 /**
@@ -38,10 +39,10 @@ export function loginByPhone(params: LoginParams) {
  * @param {string} phone
  */
 export function getCaptcha(phone: string) {
-  return defHttp.get({
-    url: Api.CAPTCHA,
-    params: { phone },
-  })
+	return defHttp.get({
+		url: Api.CAPTCHA,
+		params: { phone },
+	})
 }
 
 /**
@@ -49,22 +50,22 @@ export function getCaptcha(phone: string) {
  * - phone
  * - captcha: 验证码
  * - ctcode: 国家区号,默认 86 即中国
- * @param {Object} params
+ * @param {object} params
  * @param {string} params.phone
  * @param {string} params.captcha
  * @param {number=86} params.ctcode
  */
 export function loginByCaptcha(params: LoginParams) {
-  return defHttp.get({
-    url: Api.LOGINBYCAPTCHA,
-    params,
-  })
+	return defHttp.get({
+		url: Api.LOGINBYCAPTCHA,
+		params,
+	})
 }
 
 export function checkLoginStatus() {
-  return defHttp.get({
-    url: Api.CHECKLOGINSTATUS,
-  })
+	return defHttp.get({
+		url: Api.CHECKLOGINSTATUS,
+	})
 }
 
 /**
@@ -73,9 +74,9 @@ export function checkLoginStatus() {
  * - 调用例子 : /login/refresh
  */
 export function refreshCookie() {
-  return defHttp.post({
-    url: '/login/refresh',
-  })
+	return defHttp.post({
+		url: '/login/refresh',
+	})
 }
 
 /**
@@ -83,7 +84,7 @@ export function refreshCookie() {
  * 说明 : 调用此接口 , 可退出登录
  */
 export function logout() {
-  return defHttp.get({
-    url: Api.LOGOUT,
-  })
+	return defHttp.get({
+		url: Api.LOGOUT,
+	})
 }

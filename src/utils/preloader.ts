@@ -25,7 +25,10 @@ export type Trial = RegularTrial | CatchTrial
 
 // ---- Constants ----
 
+const CDN_BASE = import.meta.env.VITE_CDN_BASE_URL as string
+
 export const TOTAL_TRIALS = 200
+export const STATE_VERSION = 4
 const REGULAR_TRIALS = 195
 const CATCH_TRIALS = 5
 const LOOKAHEAD = 10
@@ -47,7 +50,7 @@ function pickN<T>(arr: T[], n: number): T[] {
 }
 
 function mainImageUrl(paperId: string, method: string): string {
-	return `/main_data/${paperId}_${method}.jpg`
+	return `${CDN_BASE}/${paperId}_${method}.jpg`
 }
 
 // ---- Trial generation ----
@@ -56,7 +59,6 @@ export function generateTrials(): Trial[] {
 	const paperIds = Object.keys(papers)
 
 	// 1. Build 195 regular trials
-	// Randomly sample 195 papers from all available papers
 	const shuffled = fisherYatesShuffle(paperIds)
 	const regularPapers = shuffled.slice(0, REGULAR_TRIALS)
 
@@ -81,7 +83,7 @@ export function generateTrials(): Trial[] {
 		return {
 			type: 'catch',
 			catchFile,
-			catchUrl: `/catch_data/${catchFile}`,
+			catchUrl: `${CDN_BASE}/${catchFile}`,
 			mainPaperId: randomPaperId,
 			mainMethod,
 			mainUrl: mainImageUrl(randomPaperId, mainMethod),
@@ -89,12 +91,12 @@ export function generateTrials(): Trial[] {
 		}
 	})
 
-	// 3. Insert catch trials at random positions among 500 slots
+	// 3. Insert catch trials at random positions
 	const trials: Trial[] = [...regularTrials]
 	const catchPositions = pickN(
 		Array.from({ length: TOTAL_TRIALS }, (_, i) => i),
 		CATCH_TRIALS,
-	).sort((a, b) => b - a) // sort descending so splice doesn't shift indices
+	).sort((a, b) => b - a)
 
 	for (let i = 0; i < catchPositions.length; i++) {
 		trials.splice(catchPositions[i], 0, catchTrials[i])
@@ -106,17 +108,25 @@ export function generateTrials(): Trial[] {
 // ---- Preloading ----
 
 const preloadedUrls = new Set<string>()
+const pendingImages = new Set<HTMLImageElement>()
 
 function preloadImage(url: string): void {
 	if (preloadedUrls.has(url)) {
 		return
 	}
-	preloadedUrls.add(url)
 	const img = new Image()
+	pendingImages.add(img)
+	img.onload = () => {
+		preloadedUrls.add(url)
+		pendingImages.delete(img)
+	}
+	img.onerror = () => {
+		pendingImages.delete(img)
+	}
 	img.src = url
 }
 
-function getTrialUrls(trial: Trial): string[] {
+export function getTrialUrls(trial: Trial): string[] {
 	if (trial.type === 'regular') {
 		return [trial.image1Url, trial.image2Url]
 	}
@@ -130,4 +140,68 @@ export function preloadAhead(trials: Trial[], currentIndex: number): void {
 			preloadImage(url)
 		}
 	}
+}
+
+export function preloadAllImages(
+	trials: Trial[],
+	startIndex: number,
+	onProgress?: (_loaded: number, _total: number, _failed: number) => void,
+): Promise<{ failedUrls: string[] }> {
+	const urls = new Set<string>()
+	for (let i = startIndex; i < trials.length; i++) {
+		for (const url of getTrialUrls(trials[i])) {
+			if (!preloadedUrls.has(url)) {
+				urls.add(url)
+			}
+		}
+	}
+
+	const total = urls.size
+	let loaded = 0
+	const failedUrls: string[] = []
+
+	if (total === 0) {
+		onProgress?.(0, 0, 0)
+		return Promise.resolve({ failedUrls: [] })
+	}
+
+	const BATCH_SIZE = 20
+	const urlArray = [...urls]
+
+	return new Promise((resolve) => {
+		let index = 0
+		const activeImages = new Set<HTMLImageElement>()
+
+		function loadNext() {
+			while (activeImages.size < BATCH_SIZE && index < urlArray.length) {
+				const url = urlArray[index++]
+				const img = new Image()
+				activeImages.add(img)
+
+				const done = (success: boolean) => {
+					loaded++
+					activeImages.delete(img)
+					if (success) {
+						preloadedUrls.add(url)
+					}
+					else {
+						failedUrls.push(url)
+					}
+					onProgress?.(loaded, total, failedUrls.length)
+					if (loaded >= total) {
+						resolve({ failedUrls })
+					}
+					else {
+						loadNext()
+					}
+				}
+
+				img.onload = () => done(true)
+				img.onerror = () => done(false)
+				img.src = url
+			}
+		}
+
+		loadNext()
+	})
 }

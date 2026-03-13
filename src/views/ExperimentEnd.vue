@@ -13,6 +13,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { TOTAL_TRIALS } from '@/utils/preloader'
 
 const router = useRouter()
 const participantInfo = ref<any>(null)
@@ -25,27 +26,44 @@ const questionnaireId = ref<string | null>(null)
 const userId = ref<string | null>(null)
 const startTime = ref<string | null>(null)
 
+function clearExperimentData() {
+	const keysToRemove = [
+		'experimentState',
+		'participantInfo',
+		'hasSeenInstructions',
+		'preloadComplete',
+		'hasGivenConsent',
+		'experimentCompleted',
+		'dataSubmitted',
+		'questionnaire_id',
+		'user_id',
+		'start_time',
+		'uuid',
+	]
+	keysToRemove.forEach(key => localStorage.removeItem(key))
+}
+
 onMounted(() => {
 	checkExperimentCompletion()
 
 	// 从 localStorage 获取参与者信息
 	const storedInfo = localStorage.getItem('participantInfo')
 	if (storedInfo) {
-		participantInfo.value = JSON.parse(storedInfo)
-		canWechatPay.value = participantInfo.value.canWechatPay || ''
+		try {
+			participantInfo.value = JSON.parse(storedInfo)
+			canWechatPay.value = participantInfo.value.canWechatPay || ''
+		}
+		catch {
+			// Will be handled by checkExperimentCompletion
+		}
 	}
 
 	// 检查是否已经提交过数据
-	const hasSubmitted = localStorage.getItem('experimentSubmitted')
+	const hasSubmitted = localStorage.getItem('dataSubmitted')
 	if (hasSubmitted === 'true') {
 		showToast('数据已提交')
 		submitted.value = true
-		if (canWechatPay.value === '是') {
-			window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
-		}
-		else {
-			router.push('/thank-you')
-		}
+		router.push('/thank-you')
 		return
 	}
 
@@ -59,14 +77,35 @@ function checkExperimentCompletion() {
 	const storedInfo = localStorage.getItem('participantInfo')
 	const experimentState = localStorage.getItem('experimentState')
 	const hasSeenInstructions = localStorage.getItem('hasSeenInstructions')
+
 	if (storedInfo) {
-		participantInfo.value = JSON.parse(storedInfo)
+		try {
+			participantInfo.value = JSON.parse(storedInfo)
+		}
+		catch {
+			clearExperimentData()
+			router.push('/informed-consent')
+			return
+		}
 	}
+
 	if (!storedInfo || !experimentState || hasSeenInstructions !== 'true') {
 		showToast('实验流程未完成')
-		// clean all local storage
-		localStorage.clear()
-		router.push('/instructions')
+		clearExperimentData()
+		router.push('/informed-consent')
+		return
+	}
+
+	try {
+		const parsed = JSON.parse(experimentState)
+		if (!parsed.trialData || parsed.trialData.length < TOTAL_TRIALS) {
+			showToast('实验尚未完成')
+			router.push('/experiment')
+		}
+	}
+	catch {
+		clearExperimentData()
+		router.push('/informed-consent')
 	}
 }
 
@@ -76,7 +115,7 @@ function goToSurvey() {
 	}
 
 	// 检查是否已经提交过数据
-	if (localStorage.getItem('experimentSubmitted') === 'true') {
+	if (localStorage.getItem('dataSubmitted') === 'true') {
 		showToast('数据已提交')
 		submitted.value = true
 		if (canWechatPay.value === '是') {
@@ -99,7 +138,15 @@ function goToSurvey() {
 		return
 	}
 
-	const experimentData = JSON.parse(experimentState)
+	let experimentData: any
+	try {
+		experimentData = JSON.parse(experimentState)
+	}
+	catch {
+		showToast('实验数据损坏')
+		isSubmitting.value = false
+		return
+	}
 
 	// 准备发送的数据（匹配后端 ExperimentData 格式）
 	const data = {
@@ -165,13 +212,13 @@ function goToSurvey() {
 			console.log('数据提交成功:', result)
 
 			// 标记数据已提交
-			localStorage.setItem('experimentSubmitted', 'true')
+			localStorage.setItem('dataSubmitted', 'true')
 			submitted.value = true
 
 			if (canWechatPay.value === '是') {
 				showToast('数据提交成功，正在跳转问卷星...')
 				setTimeout(() => {
-					window.location.href = 'https://v.wjx.cn/vm/riVAQQo.aspx#'
+					window.location.href = 'https://v.wjx.cn/vm/YfS5uW4.aspx#'
 				}, 1000)
 			}
 			else {
